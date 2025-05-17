@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>autoLV</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      text-align: center;
+    }
+    .section {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+    select, input {
+      padding: 8px;
+      font-size: 14px;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100px;
+    }
+    button.action {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      min-width: 140px;
+      cursor: pointer;
+    }
+    button.delete {
+      background-color: white;
+      border: none;
+      color: red;
+      font-weight: bold;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #888;
+      padding: 8px 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1><strong>autoLV</strong></h1>
+
+  <!-- 주소 선택 -->
+  <div class="section">
+    <select id="sido" onchange="loadSigungu()">
+      <option value="">시/도 선택</option>
+    </select>
+    <select id="sigungu" onchange="loadDong()">
+      <option value="">시/군/구 선택</option>
+    </select>
+    <select id="dong">
+      <option value="">읍/면/동 선택</option>
+    </select>
+  </div>
+
+  <!-- 지번 입력 -->
+  <div class="section">
+    <select id="is_san">
+      <option value="false">일반</option>
+      <option value="true">산</option>
+    </select>
+    <input type="text" id="main_no" placeholder="본번 입력">
+    <input type="text" id="sub_no" placeholder="부번 입력">
+  </div>
+
+  <!-- 버튼 영역 -->
+  <div class="section">
+    <button class="action" onclick="addRow()">추가</button>
+    <button class="action" onclick="query()">조회</button>
+  </div>
+
+  <!-- 결과 테이블 -->
+  <table id="result-table">
+    <thead>
+      <tr>
+        <th>순번</th>
+        <th>주소</th>
+        <th>개별공시지가</th>
+        <th>공시일자</th>
+        <th>삭제</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- 파일 관련 버튼 -->
+  <div class="section">
+    <button>엑셀 업로드</button>
+    <button>결과 다운로드</button>
+  </div>
+
+  <script>
+    let count = 1;
+    const ldMap = {
+      "서울특별시": {
+        "강남구": { "개포동": "1168010800", "논현동": "1168010600" },
+        "서초구": { "반포동": "1165010800" }
+      }
+    };
+
+    window.onload = () => {
+      const sidoSel = document.getElementById("sido");
+      Object.keys(ldMap).forEach(sido => {
+        sidoSel.innerHTML += `<option value="${sido}">${sido}</option>`;
+      });
+    };
+
+    function loadSigungu() {
+      const sido = document.getElementById("sido").value;
+      const sigunguSel = document.getElementById("sigungu");
+      sigunguSel.innerHTML = `<option value="">시/군/구 선택</option>`;
+      document.getElementById("dong").innerHTML = `<option value="">읍/면/동 선택</option>`;
+      if (!sido) return;
+      Object.keys(ldMap[sido]).forEach(sg => {
+        sigunguSel.innerHTML += `<option value="${sg}">${sg}</option>`;
+      });
+    }
+
+    function loadDong() {
+      const sido = document.getElementById("sido").value;
+      const sigungu = document.getElementById("sigungu").value;
+      const dongSel = document.getElementById("dong");
+      dongSel.innerHTML = `<option value="">읍/면/동 선택</option>`;
+      if (!sido || !sigungu) return;
+      Object.keys(ldMap[sido][sigungu]).forEach(dong => {
+        dongSel.innerHTML += `<option value="${dong}">${dong}</option>`;
+      });
+    }
+
+    function addRow() {
+      const sido = document.getElementById("sido").value;
+      const sigungu = document.getElementById("sigungu").value;
+      const dong = document.getElementById("dong").value;
+      const ld_code = ldMap[sido]?.[sigungu]?.[dong];
+
+      const main = document.getElementById("main_no").value;
+      const sub = document.getElementById("sub_no").value;
+      const san = document.getElementById("is_san").value;
+
+      if (!ld_code || !main) {
+        alert("주소와 본번을 입력하세요");
+        return;
+      }
+
+      const tbody = document.querySelector("#result-table tbody");
+      const row = tbody.insertRow();
+      row.innerHTML = `
+        <td>${count++}</td>
+        <td data-ld="${ld_code}" data-main="${main}" data-sub="${sub}" data-san="${san}">
+          ${sido} ${sigungu} ${dong} ${san === "true" ? "산 " : ""}${main}${sub ? '-' + sub : ''}
+        </td>
+        <td>-</td>
+        <td>-</td>
+        <td><button class="delete" onclick="this.closest('tr').remove()">✕</button></td>
+      `;
+    }
+
+    async function query() {
+      const rows = document.querySelectorAll("#result-table tbody tr");
+      for (const row of rows) {
+        const td = row.cells[1];
+        const ld = td.dataset.ld;
+        const main = td.dataset.main;
+        const sub = td.dataset.sub;
+        const san = td.dataset.san;
+
+        try {
+          const res = await fetch(`http://127.0.0.1:8000/landprice?ld_code=${ld}&main_no=${main}&sub_no=${sub}&is_san=${san}`);
+          const data = await res.json();
+          row.cells[2].innerText = data.price_per_m2 ?? "조회 실패";
+          row.cells[3].innerText = data.year ?? "-";
+        } catch (e) {
+          row.cells[2].innerText = "요청 실패";
+        }
+      }
+    }
+  </script>
+</body>
+</html>

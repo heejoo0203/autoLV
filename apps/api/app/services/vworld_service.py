@@ -14,7 +14,7 @@ from app.schemas.land import LandLookupRequest, LandLookupResponse, LandResultRo
 
 
 def lookup_land_prices(payload: LandLookupRequest) -> LandLookupResponse:
-    if not settings.vworld_api_key:
+    if not settings.vworld_api_key or settings.vworld_api_key.strip() in {"your-vworld-api-key", "change-me"}:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "VWORLD_KEY_MISSING", "message": "VWORLD_API_KEY 설정이 필요합니다."},

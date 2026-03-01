@@ -12,6 +12,7 @@ AddressMode = Literal["auto", "jibun", "road"]
 
 _NUMBER_PATTERN = re.compile(r"^\d+(?:-\d+)?$")
 _JIBUN_PATTERN = re.compile(r"^산?\d+(?:-\d+)?$")
+_ADDR_HINT_PATTERN = re.compile(r"(시|도|군|구).*(로|길|동|읍|면|리).*\d")
 
 
 @dataclass(slots=True)
@@ -38,6 +39,11 @@ def normalize_lookup_row(
     building_main_no = mapping.get(row, "building_main_no")
     building_sub_no = mapping.get(row, "building_sub_no")
     full_address = mapping.get(row, "full_address")
+
+    if not full_address:
+        full_address = _infer_full_address_from_row(row)
+    if not address_type:
+        address_type = _infer_address_type_from_row(row)
 
     mode = _resolve_mode(
         requested=address_mode,
@@ -95,7 +101,11 @@ def normalize_lookup_row(
         building_main_no=_normalize_main_no(building_main_no),
         building_sub_no=_normalize_sub_no(building_sub_no),
     )
-    number = payload.building_main_no if not payload.building_sub_no else f"{payload.building_main_no}-{payload.building_sub_no}"
+    number = (
+        payload.building_main_no
+        if payload.building_sub_no in {"", "0"}
+        else f"{payload.building_main_no}-{payload.building_sub_no}"
+    )
     summary = f"{payload.sido} {payload.sigungu} {payload.road_name} {number}".strip()
     cache_key = f"road|{payload.sido}|{payload.sigungu}|{payload.road_name}|{payload.building_main_no}|{payload.building_sub_no}"
     return NormalizedLookupRow(payload=payload, summary=summary, cache_key=cache_key)
@@ -155,13 +165,23 @@ def _parse_jibun(full_address: str) -> dict[str, str]:
     if digit_index < 3:
         return {}
 
+    number_token = tokens[digit_index]
+    dong_end = digit_index
+    if number_token == "산":
+        if digit_index + 1 >= len(tokens) or not _NUMBER_PATTERN.fullmatch(tokens[digit_index + 1]):
+            return {}
+        number_token = f"산{tokens[digit_index + 1]}"
+    elif digit_index > 2 and tokens[digit_index - 1] == "산":
+        number_token = f"산{number_token}"
+        dong_end = digit_index - 1
+
     sido = tokens[0]
     sigungu = tokens[1]
-    dong = " ".join(tokens[2:digit_index]).strip()
+    dong = " ".join(tokens[2:dong_end]).strip()
     if not dong:
         return {}
 
-    is_san, main_no, sub_no = _split_jibun_token(tokens[digit_index])
+    is_san, main_no, sub_no = _split_jibun_token(number_token)
     return {
         "sido": sido,
         "sigungu": sigungu,
@@ -203,7 +223,10 @@ def _split_tokens(value: str) -> list[str]:
 
 def _find_last_jibun_token(tokens: list[str]) -> int:
     for idx in range(len(tokens) - 1, -1, -1):
-        if _JIBUN_PATTERN.fullmatch(tokens[idx]):
+        token = tokens[idx]
+        if _JIBUN_PATTERN.fullmatch(token):
+            return idx
+        if token == "산" and idx + 1 < len(tokens) and _NUMBER_PATTERN.fullmatch(tokens[idx + 1]):
             return idx
     return -1
 
@@ -258,3 +281,24 @@ def _compose_jibun_summary(sido: str, sigungu: str, dong: str, san_type: str, ma
     prefix = "산 " if san_type == "산" else ""
     jibun = f"{main_no}-{sub_no}" if sub_no != "0" else main_no
     return f"{sido} {sigungu} {dong} {prefix}{jibun}".strip()
+
+
+def _infer_full_address_from_row(row: list[str]) -> str:
+    for raw in row:
+        text = " ".join(str(raw or "").strip().split())
+        if len(text) < 8:
+            continue
+        if not _ADDR_HINT_PATTERN.search(text):
+            continue
+        return text
+    return ""
+
+
+def _infer_address_type_from_row(row: list[str]) -> str:
+    for raw in row:
+        token = str(raw or "").strip().lower()
+        if token in {"지번", "parcel", "jibun"}:
+            return "지번"
+        if token in {"도로명", "road"}:
+            return "도로명"
+    return ""

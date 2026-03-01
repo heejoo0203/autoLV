@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import time
+from http.client import RemoteDisconnected
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -303,20 +305,32 @@ def call_vworld_json(path: str, params: dict[str, str]) -> dict[str, Any]:
 
     query = urlencode(merged, doseq=True)
     url = f"{settings.vworld_api_base_url.rstrip('/')}{path}?{query}"
-    req = Request(url=url, method="GET", headers={"Accept": "application/json"})
-    try:
-        with urlopen(req, timeout=settings.vworld_timeout_seconds) as response:
-            body = response.read().decode("utf-8")
-    except HTTPError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"code": "VWORLD_HTTP_ERROR", "message": f"VWorld HTTP 오류: {exc.code}"},
-        ) from exc
-    except URLError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"code": "VWORLD_UNREACHABLE", "message": f"VWorld 연결 실패: {exc.reason}"},
-        ) from exc
+    max_attempts = max(1, settings.vworld_retry_count + 1)
+    body = ""
+
+    for attempt in range(max_attempts):
+        req = Request(url=url, method="GET", headers={"Accept": "application/json"})
+        try:
+            with urlopen(req, timeout=settings.vworld_timeout_seconds) as response:
+                body = response.read().decode("utf-8")
+                break
+        except HTTPError as exc:
+            if _should_retry_http_error(exc.code, attempt, max_attempts):
+                _sleep_backoff(attempt)
+                continue
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={"code": "VWORLD_HTTP_ERROR", "message": f"VWorld HTTP 오류: {exc.code}"},
+            ) from exc
+        except (URLError, RemoteDisconnected, TimeoutError, ConnectionResetError, OSError) as exc:
+            if attempt < max_attempts - 1:
+                _sleep_backoff(attempt)
+                continue
+            reason = getattr(exc, "reason", str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={"code": "VWORLD_UNREACHABLE", "message": f"VWorld 연결 실패: {reason}"},
+            ) from exc
 
     try:
         return json.loads(body)
@@ -325,3 +339,16 @@ def call_vworld_json(path: str, params: dict[str, str]) -> dict[str, Any]:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "VWORLD_INVALID_JSON", "message": "VWorld 응답을 해석하지 못했습니다."},
         ) from exc
+
+
+def _should_retry_http_error(status_code: int, attempt: int, max_attempts: int) -> bool:
+    if attempt >= max_attempts - 1:
+        return False
+    # VWorld 및 네트워크 게이트웨이의 일시 장애에 대해서만 재시도한다.
+    return status_code in {429, 500, 502, 503, 504}
+
+
+def _sleep_backoff(attempt: int) -> None:
+    delay = settings.vworld_retry_backoff_seconds * (2**attempt)
+    if delay > 0:
+        time.sleep(delay)

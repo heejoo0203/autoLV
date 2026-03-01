@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         default="http://127.0.0.1:3000,http://localhost:3000",
         alias="CORS_ORIGINS",
     )
+    cors_origin_regex: str = Field(default="", alias="CORS_ORIGIN_REGEX")
     database_url: str = Field(default="sqlite:///./autolv.db", alias="DATABASE_URL")
 
     jwt_secret_key: str = Field(default="change-me-access-key", alias="JWT_SECRET_KEY")
@@ -29,6 +30,8 @@ class Settings(BaseSettings):
     vworld_api_key: str = Field(default="", alias="VWORLD_API_KEY")
     vworld_api_domain: str = Field(default="localhost", alias="VWORLD_API_DOMAIN")
     vworld_timeout_seconds: int = Field(default=15, alias="VWORLD_TIMEOUT_SECONDS")
+    vworld_retry_count: int = Field(default=2, alias="VWORLD_RETRY_COUNT")
+    vworld_retry_backoff_seconds: float = Field(default=0.35, alias="VWORLD_RETRY_BACKOFF_SECONDS")
     road_name_file_path: str = Field(default="", alias="ROAD_NAME_FILE_PATH")
     ld_code_file_path: str = Field(default="", alias="LD_CODE_FILE_PATH")
 

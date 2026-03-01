@@ -1,3 +1,5 @@
+import json
+import re
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -43,13 +45,40 @@ def _ensure_runtime_dirs() -> None:
     Path(settings.profile_image_dir).resolve().mkdir(parents=True, exist_ok=True)
 
 
+def _parse_cors_origins(raw: str) -> list[str]:
+    value = (raw or "").strip()
+    if not value:
+        return []
+
+    parsed_values: list[str] = []
+    if value.startswith("["):
+        try:
+            payload = json.loads(value)
+            if isinstance(payload, list):
+                parsed_values = [str(item) for item in payload if str(item).strip()]
+        except json.JSONDecodeError:
+            parsed_values = []
+
+    if not parsed_values:
+        parsed_values = [item for item in re.split(r"[,\n;]+", value) if item.strip()]
+
+    normalized: list[str] = []
+    for item in parsed_values:
+        origin = item.strip().strip("'").strip('"').rstrip("/")
+        if origin:
+            normalized.append(origin)
+    return normalized
+
+
 _ensure_runtime_dirs()
 app = FastAPI(title=settings.app_name, version="0.3.0")
-allow_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+allow_origins = _parse_cors_origins(settings.cors_origins)
+allow_origin_regex = settings.cors_origin_regex.strip() or None
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

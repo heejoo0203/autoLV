@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
@@ -19,6 +19,14 @@ type LandLookupApiResponse = {
 };
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchPageFallback />}>
+      <SearchPageClient />
+    </Suspense>
+  );
+}
+
+function SearchPageClient() {
   const { user } = useAuth();
   const params = useSearchParams();
 
@@ -495,4 +503,13 @@ function toDisplayAddress(summary: string, results: LandResultRow[]): string {
     if (location) return location;
   }
   return summary;
+}
+
+function SearchPageFallback() {
+  return (
+    <section className="panel">
+      <h2>개별조회</h2>
+      <p className="hint">페이지를 불러오는 중입니다...</p>
+    </section>
+  );
 }

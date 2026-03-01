@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/app/components/auth-provider";
+import { AuthModal } from "@/app/components/auth-modal";
 
 export const metadata: Metadata = {
   title: "autoLV Web",
@@ -13,7 +15,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          {children}
+          <AuthModal />
+        </AuthProvider>
+      </body>
     </html>
   );
 }

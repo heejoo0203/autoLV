@@ -116,11 +116,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setAuthLoading(true);
     try {
-      await fetch(`${API_BASE}/api/v1/auth/logout`, {
+      const res = await fetch(`${API_BASE}/api/v1/auth/logout`, {
         method: "POST",
         credentials: "include",
       });
+      if (!res.ok) throw new Error("로그아웃 요청에 실패했습니다.");
       setUser(null);
+      await refreshMe();
       setAuthMessage("로그아웃되었습니다.");
     } finally {
       setAuthLoading(false);

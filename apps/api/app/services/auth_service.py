@@ -65,8 +65,15 @@ def attach_auth_cookies(response: Response, user_id: str) -> None:
 
 
 def clear_auth_cookies(response: Response) -> None:
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+    # Match cookie options used in login to ensure browser-side deletion works reliably.
+    for key in ("access_token", "refresh_token"):
+        response.delete_cookie(
+            key=key,
+            path="/",
+            secure=settings.cookie_secure,
+            httponly=True,
+            samesite=settings.cookie_samesite,
+        )
 
 
 def get_user_from_access_token(db: Session, token: str | None) -> User:
@@ -88,4 +95,3 @@ def get_user_from_access_token(db: Session, token: str | None) -> User:
             detail={"code": "UNAUTHORIZED", "message": "사용자 정보를 찾을 수 없습니다."},
         )
     return user
-

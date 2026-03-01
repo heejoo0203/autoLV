@@ -149,7 +149,7 @@ body {
   z-index: 30;
 }
 
-.profile-menu:hover .profile-dropdown {
+.profile-dropdown.open {
   display: grid;
   gap: 2px;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -9,9 +10,28 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const { user, openAuth, logout } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isLoggedIn = Boolean(user);
   const userLabel = user?.full_name?.trim() || user?.email || "사용자";
+
+  useEffect(() => {
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", closeOnOutside);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    setProfileOpen(false);
+  }, [pathname]);
 
   return (
     <div className="app-shell">
@@ -43,12 +63,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
         <div className="right-profile">
           {isLoggedIn ? (
-            <div className="profile-menu">
-              <button className="profile-trigger" type="button">
+            <div className="profile-menu" ref={menuRef}>
+              <button
+                className="profile-trigger"
+                type="button"
+                onClick={() => setProfileOpen((prev) => !prev)}
+              >
                 <div className="avatar">{userLabel.charAt(0).toUpperCase()}</div>
                 <span className="profile-name">{userLabel}</span>
               </button>
-              <div className="profile-dropdown">
+              <div className={`profile-dropdown ${profileOpen ? "open" : ""}`}>
                 <button className="profile-action" type="button">
                   회원 정보 수정
                 </button>
@@ -62,6 +86,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   className="profile-action danger"
                   type="button"
                   onClick={async () => {
+                    setProfileOpen(false);
                     await logout();
                     router.push("/search");
                   }}

@@ -30,6 +30,8 @@ python scripts/run_migrations.py
 - `VWORLD_RETRY_COUNT`: VWorld 호출 재시도 횟수(기본 `2`)
 - `VWORLD_RETRY_BACKOFF_SECONDS`: 재시도 백오프 시작 지연(기본 `0.35`)
 - `VWORLD_USER_AGENT`: VWorld 요청 User-Agent(운영 식별 문자열)
+- `VWORLD_PROXY_URL`: VWorld 프록시 URL(예: `https://<web-domain>/api/vworld-proxy`)
+- `VWORLD_PROXY_TOKEN`: 프록시 인증 토큰(`x-vworld-proxy-token`)
 - `ROAD_NAME_FILE_PATH`: 도로명 파일 경로(미입력 시 `docs/TN_SPRD_RDNM.txt` 자동 탐색)
 - `LD_CODE_FILE_PATH`: 법정동 코드 파일 경로(미입력 시 `apps/web/public/ld_codes.json` 자동 탐색)
 - `BULK_STORAGE_DIR`: 파일조회 업로드/결과 파일 저장 경로

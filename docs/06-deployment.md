@@ -37,6 +37,8 @@ VWORLD_API_BASE_URL=https://api.vworld.kr
 VWORLD_API_DOMAIN=api.autolv.example.com
 VWORLD_TIMEOUT_SECONDS=15
 VWORLD_API_KEY=your-real-key
+VWORLD_PROXY_URL=https://autolv.example.com/api/vworld-proxy
+VWORLD_PROXY_TOKEN=replace-with-strong-shared-token
 ROAD_NAME_FILE_PATH=
 LD_CODE_FILE_PATH=
 BULK_STORAGE_DIR=./storage/bulk
@@ -50,6 +52,10 @@ PROFILE_IMAGE_DIR=./storage/profile_images
 ### 4.2 Web (`apps/web/.env.local`)
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://api.autolv.example.com
+VWORLD_API_BASE_URL=https://api.vworld.kr
+VWORLD_API_DOMAIN=https://autolv.example.com
+VWORLD_API_KEY=your-real-key
+VWORLD_PROXY_TOKEN=replace-with-strong-shared-token
 ```
 
 ## 5. DB 마이그레이션 절차

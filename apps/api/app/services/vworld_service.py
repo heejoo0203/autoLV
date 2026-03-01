@@ -301,6 +301,29 @@ def _parse_int(value: str, field_name: str, allow_zero: bool) -> int:
 
 
 def call_vworld_json(path: str, params: dict[str, str]) -> dict[str, Any]:
+    direct_error: HTTPException | None = None
+
+    try:
+        return _call_vworld_direct(path, params)
+    except HTTPException as exc:
+        direct_error = exc
+
+    if settings.vworld_proxy_url.strip():
+        try:
+            return _call_vworld_proxy(path, params)
+        except HTTPException:
+            pass
+
+    if direct_error is not None:
+        raise direct_error
+
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail={"code": "VWORLD_UNKNOWN", "message": "VWorld 조회 중 알 수 없는 오류가 발생했습니다."},
+    )
+
+
+def _call_vworld_direct(path: str, params: dict[str, str]) -> dict[str, Any]:
     merged = dict(params)
     merged["key"] = settings.vworld_api_key
     merged["domain"] = settings.vworld_api_domain
@@ -335,6 +358,50 @@ def call_vworld_json(path: str, params: dict[str, str]) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "VWORLD_INVALID_JSON", "message": "VWorld 응답을 해석하지 못했습니다."},
+        ) from exc
+
+
+def _call_vworld_proxy(path: str, params: dict[str, str]) -> dict[str, Any]:
+    proxy_url = settings.vworld_proxy_url.strip()
+    if not proxy_url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "VWORLD_PROXY_MISSING", "message": "VWorld 프록시 URL이 설정되지 않았습니다."},
+        )
+
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": settings.vworld_user_agent,
+    }
+    if settings.vworld_proxy_token.strip():
+        headers["x-vworld-proxy-token"] = settings.vworld_proxy_token.strip()
+
+    try:
+        response = _get_vworld_session().post(
+            proxy_url,
+            headers=headers,
+            json={"path": path, "params": params},
+            timeout=settings.vworld_timeout_seconds,
+        )
+    except requests.RequestException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "VWORLD_PROXY_UNREACHABLE", "message": f"VWorld 프록시 연결 실패: {exc}"},
+        ) from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "VWORLD_PROXY_HTTP_ERROR", "message": f"VWorld 프록시 HTTP 오류: {response.status_code}"},
+        )
+
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "VWORLD_PROXY_INVALID_JSON", "message": "VWorld 프록시 응답을 해석하지 못했습니다."},
         ) from exc
 
 

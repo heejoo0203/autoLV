@@ -420,6 +420,9 @@ function SelectBox(props: {
     <div>
       <label className="field-label">{props.title}</label>
       <select className="scroll-select" size={8} value={props.value} onChange={(e) => props.onChange(e.target.value)}>
+        <option value="" disabled hidden>
+          선택
+        </option>
         {props.items.map((item) => (
           <option key={item} value={item}>
             {item}

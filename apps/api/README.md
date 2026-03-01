@@ -33,6 +33,9 @@ python scripts/run_migrations.py
 - `BULK_MAX_ROWS`: 파일조회 최대 허용 행 수 (기본 `10000`)
 - `PROFILE_IMAGE_DIR`: 프로필 이미지 저장 경로
 
+참고:
+- `DATABASE_URL`에 `postgres://` 또는 `postgresql://`를 넣어도 내부에서 `postgresql+psycopg://`로 자동 변환한다.
+
 ## 마이그레이션
 - Alembic 경로: `apps/api/alembic`
 - 버전 파일: `apps/api/alembic/versions`

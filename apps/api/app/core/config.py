@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     profile_image_dir: str = Field(default="./storage/profile_images", alias="PROFILE_IMAGE_DIR")
 
 
+def _normalize_database_url(database_url: str) -> str:
+    value = (database_url or "").strip()
+    if value.startswith("postgres://"):
+        value = "postgresql://" + value[len("postgres://") :]
+    if value.startswith("postgresql://"):
+        value = "postgresql+psycopg://" + value[len("postgresql://") :]
+    return value
+
+
 def _resolve_road_name_file_path(configured: str) -> str:
     candidates: list[Path] = []
 
@@ -87,5 +96,6 @@ def _resolve_ld_code_file_path(configured: str) -> str:
 
 
 settings = Settings()
+settings.database_url = _normalize_database_url(settings.database_url)
 settings.road_name_file_path = _resolve_road_name_file_path(settings.road_name_file_path)
 settings.ld_code_file_path = _resolve_ld_code_file_path(settings.ld_code_file_path)

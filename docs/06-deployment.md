@@ -44,6 +44,9 @@ BULK_MAX_ROWS=10000
 PROFILE_IMAGE_DIR=./storage/profile_images
 ```
 
+참고:
+- `DATABASE_URL`은 `postgresql://...` 형식으로 입력해도 서버에서 `postgresql+psycopg://...`로 자동 정규화한다.
+
 ### 4.2 Web (`apps/web/.env.local`)
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://api.autolv.example.com

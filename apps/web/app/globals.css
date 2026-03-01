@@ -146,6 +146,17 @@ body::before {
   text-underline-offset: 2px;
 }
 
+.nav-item.danger {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.nav-item.danger:hover:not(:disabled) {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
 .right-profile {
   display: flex;
   justify-content: flex-end;
@@ -632,6 +643,12 @@ body::before {
   margin-bottom: 0;
 }
 
+.bulk-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -659,6 +676,25 @@ body::before {
 .status-badge.failed {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.checkbox-col {
+  text-align: center;
+  width: 62px;
+}
+
+.checkbox-col input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2f6ec7;
+}
+
+.pagination {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
 }
 
 .empty-box {

@@ -58,6 +58,10 @@ export type BulkJob = {
 };
 
 export type BulkJobListResponse = {
+  page: number;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
   items: BulkJob[];
 };
 
@@ -66,4 +70,11 @@ export type BulkJobCreateResponse = {
   status: BulkJobStatus;
   total_rows: number;
   created_at: string;
+};
+
+export type BulkDeleteResponse = {
+  deleted_count: number;
+  skipped_count: number;
+  deleted_job_ids: string[];
+  skipped_job_ids: string[];
 };

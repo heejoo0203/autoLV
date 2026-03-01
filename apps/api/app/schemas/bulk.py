@@ -39,4 +39,19 @@ class BulkJobItemResponse(BaseModel):
 
 
 class BulkJobListResponse(BaseModel):
+    page: int
+    page_size: int
+    total_count: int
+    total_pages: int
     items: list[BulkJobItemResponse]
+
+
+class BulkJobDeleteRequest(BaseModel):
+    job_ids: list[str] = Field(min_length=1, max_length=100)
+
+
+class BulkJobDeleteResponse(BaseModel):
+    deleted_count: int
+    skipped_count: int
+    deleted_job_ids: list[str]
+    skipped_job_ids: list[str]

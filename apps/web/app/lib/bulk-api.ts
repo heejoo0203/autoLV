@@ -1,6 +1,13 @@
 "use client";
 
-import type { BulkAddressMode, BulkGuide, BulkJob, BulkJobCreateResponse, BulkJobListResponse } from "@/app/lib/types";
+import type {
+  BulkAddressMode,
+  BulkDeleteResponse,
+  BulkGuide,
+  BulkJob,
+  BulkJobCreateResponse,
+  BulkJobListResponse,
+} from "@/app/lib/types";
 
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
@@ -25,11 +32,15 @@ export async function createBulkJob(file: File, addressMode: BulkAddressMode): P
   return payload as BulkJobCreateResponse;
 }
 
-export async function fetchBulkJobs(): Promise<BulkJob[]> {
-  const res = await apiFetch("/api/v1/bulk/jobs", { method: "GET" });
+export async function fetchBulkJobs(page = 1, pageSize = 10): Promise<BulkJobListResponse> {
+  const query = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  const res = await apiFetch(`/api/v1/bulk/jobs?${query.toString()}`, { method: "GET" });
   const payload = (await safeJson(res)) as BulkJobListResponse | { detail?: unknown };
   if (!res.ok) throw new Error(extractError(payload, "파일 작업 목록을 불러오지 못했습니다."));
-  return Array.isArray((payload as BulkJobListResponse).items) ? (payload as BulkJobListResponse).items : [];
+  return payload as BulkJobListResponse;
 }
 
 export async function fetchBulkJob(jobId: string): Promise<BulkJob> {
@@ -57,6 +68,17 @@ export async function downloadBulkResult(jobId: string, fileName: string): Promi
   }
   const blob = await res.blob();
   triggerDownload(blob, `${stripExtension(fileName)}_result.xlsx`);
+}
+
+export async function deleteBulkJobs(jobIds: string[]): Promise<BulkDeleteResponse> {
+  const res = await apiFetch("/api/v1/bulk/jobs/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_ids: jobIds }),
+  });
+  const payload = (await safeJson(res)) as BulkDeleteResponse | { detail?: unknown };
+  if (!res.ok) throw new Error(extractError(payload, "작업 삭제에 실패했습니다."));
+  return payload as BulkDeleteResponse;
 }
 
 function triggerDownload(blob: Blob, fileName: string): void {

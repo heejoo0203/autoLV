@@ -1,74 +1,186 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="980" viewBox="0 0 1800 980">
   <defs>
     <style>
-      .title{font:700 34px Arial;fill:#0b1320}
-      .label{font:600 20px Arial;fill:#0b1320}
-      .small{font:500 16px Arial;fill:#1f2937}
-      .box{rx:16;ry:16;stroke:#0f172a;stroke-width:2}
-      .arrow{stroke:#334155;stroke-width:3;fill:none;marker-end:url(#m)}
+      .title { font: 700 34px 'Segoe UI', Arial, sans-serif; fill: #111827; }
+      .zoneTitle { font: 700 24px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .groupTitle { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #1f2937; }
+      .nodeTitle { font: 700 16px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .text { font: 500 14px 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .small { font: 500 13px 'Segoe UI', Arial, sans-serif; fill: #475569; }
+      .zone { rx: 20; ry: 20; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 8 8; }
+      .group { rx: 14; ry: 14; stroke: #cbd5e1; stroke-width: 2; }
+      .node { rx: 12; ry: 12; stroke: #d1d5db; stroke-width: 1.8; }
+      .arrow { stroke: #64748b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .arrowDashed { stroke: #94a3b8; stroke-width: 2.5; fill: none; stroke-dasharray: 6 6; marker-end: url(#arrow); }
+      .arrowLabel { font: 600 13px 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .iconStroke { stroke: #334155; stroke-width: 2.2; fill: none; }
     </style>
-    <marker id="m" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
-      <path d="M0,0 L12,6 L0,12 z" fill="#334155"/>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#64748b"/>
     </marker>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f8fbff"/>
-      <stop offset="100%" stop-color="#eef5ff"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
     </linearGradient>
   </defs>
 
-  <rect x="0" y="0" width="1600" height="980" fill="url(#bg)"/>
-  <text x="60" y="70" class="title">autoLV v2 Architecture and Data Flow</text>
+  <rect x="0" y="0" width="1800" height="980" fill="url(#bg)"/>
+  <text x="48" y="64" class="title">autoLV 시스템 아키텍처 (User | Frontend | Backend)</text>
 
-  <rect class="box" x="80" y="150" width="260" height="120" fill="#dbeafe"/>
-  <text x="140" y="198" class="label">User Browser</text>
-  <text x="112" y="230" class="small">Next.js Web App</text>
+  <!-- ZONES -->
+  <rect class="zone" x="40" y="110" width="260" height="820" fill="#f8fafc"/>
+  <text x="124" y="146" class="zoneTitle">User</text>
 
-  <rect class="box" x="430" y="120" width="300" height="170" fill="#bfdbfe"/>
-  <text x="520" y="170" class="label">Vercel</text>
-  <text x="470" y="205" class="small">Frontend Hosting</text>
-  <text x="470" y="232" class="small">SSR + API Proxy</text>
+  <rect class="zone" x="330" y="110" width="540" height="820" fill="#fffdf7"/>
+  <text x="540" y="146" class="zoneTitle">Frontend</text>
 
-  <rect class="box" x="850" y="120" width="320" height="170" fill="#c7d2fe"/>
-  <text x="965" y="170" class="label">FastAPI</text>
-  <text x="890" y="205" class="small">Auth / Query / Job API</text>
-  <text x="890" y="232" class="small">Validation + Persistence</text>
+  <rect class="zone" x="900" y="110" width="860" height="820" fill="#f8fbff"/>
+  <text x="1265" y="146" class="zoneTitle">Backend</text>
 
-  <rect class="box" x="1250" y="120" width="260" height="170" fill="#ddd6fe"/>
-  <text x="1330" y="170" class="label">Redis</text>
-  <text x="1288" y="205" class="small">Celery Queue</text>
-  <text x="1288" y="232" class="small">Job State Cache</text>
+  <!-- USER GROUP -->
+  <rect class="group" x="64" y="188" width="214" height="220" fill="#ffffff"/>
+  <text x="132" y="220" class="groupTitle">사용자</text>
+  <circle cx="170" cy="276" r="34" class="iconStroke"/>
+  <circle cx="170" cy="264" r="12" class="iconStroke"/>
+  <path d="M148 292 Q170 314 192 292" class="iconStroke"/>
+  <text x="98" y="344" class="text">일반 사용자 / 로그인 사용자</text>
+  <text x="90" y="366" class="small">지번/도로명 조회, 엑셀 업로드,</text>
+  <text x="102" y="386" class="small">결과 다운로드, 이력 확인</text>
 
-  <rect class="box" x="850" y="380" width="320" height="170" fill="#fde68a"/>
-  <text x="960" y="430" class="label">Celery Worker</text>
-  <text x="885" y="465" class="small">Address normalize + API calls</text>
-  <text x="885" y="492" class="small">10k row async processing</text>
+  <!-- FRONTEND GROUP -->
+  <rect class="group" x="356" y="188" width="488" height="702" fill="#fffefb"/>
+  <text x="528" y="220" class="groupTitle">Next.js Web (Vercel)</text>
 
-  <rect class="box" x="450" y="380" width="300" height="170" fill="#fef3c7"/>
-  <text x="548" y="430" class="label">PostgreSQL</text>
-  <text x="490" y="465" class="small">Users / Query Logs / Jobs</text>
-  <text x="490" y="492" class="small">Result metadata</text>
+  <rect class="node" x="384" y="248" width="430" height="170" fill="#ffffff"/>
+  <text x="534" y="278" class="nodeTitle">인증 UI</text>
+  <rect x="418" y="294" width="78" height="34" rx="8" fill="#e2e8f0"/>
+  <text x="438" y="316" class="small">로그인</text>
+  <rect x="512" y="294" width="92" height="34" rx="8" fill="#dbeafe"/>
+  <text x="530" y="316" class="small">회원가입</text>
+  <rect x="620" y="294" width="160" height="34" rx="8" fill="#fef3c7"/>
+  <text x="638" y="316" class="small">소셜 로그인(예정)</text>
+  <text x="420" y="356" class="small">입력: 이메일, 비밀번호, 이름(선택)</text>
+  <text x="420" y="378" class="small">출력: 세션 쿠키 기반 로그인 상태</text>
 
-  <rect class="box" x="1250" y="380" width="260" height="170" fill="#fed7aa"/>
-  <text x="1315" y="430" class="label">S3 Storage</text>
-  <text x="1288" y="465" class="small">Input/Output files</text>
-  <text x="1288" y="492" class="small">Download artifacts</text>
+  <rect class="node" x="384" y="442" width="430" height="200" fill="#ffffff"/>
+  <text x="492" y="472" class="nodeTitle">조회/업로드 UI</text>
+  <text x="420" y="500" class="small">- 지번/도로명 수동 조회 폼</text>
+  <text x="420" y="524" class="small">- 엑셀 업로드(최대 10,000행)</text>
+  <text x="420" y="548" class="small">- 진행률/상태 확인</text>
+  <text x="420" y="572" class="small">- 결과 파일 다운로드</text>
+  <text x="420" y="596" class="small">- 조회 이력 페이지</text>
 
-  <rect class="box" x="850" y="650" width="320" height="170" fill="#bbf7d0"/>
-  <text x="925" y="700" class="label">Public APIs</text>
-  <text x="885" y="735" class="small">VWorld / Address Services</text>
-  <text x="885" y="762" class="small">Land price + parcel data</text>
+  <rect class="node" x="384" y="664" width="430" height="196" fill="#ffffff"/>
+  <text x="500" y="694" class="nodeTitle">클라이언트 데이터 처리</text>
+  <text x="420" y="724" class="small">- JSON API 호출 (fetch)</text>
+  <text x="420" y="748" class="small">- HttpOnly 쿠키 자동 전송</text>
+  <text x="420" y="772" class="small">- 다운로드 링크 라우팅</text>
+  <text x="420" y="796" class="small">- 에러/검증 메시지 표시</text>
 
-  <path class="arrow" d="M340 210 L430 205"/>
-  <path class="arrow" d="M730 205 L850 205"/>
-  <path class="arrow" d="M1170 205 L1250 205"/>
-  <path class="arrow" d="M1250 235 L1170 235"/>
+  <!-- BACKEND GROUP: API -->
+  <rect class="group" x="926" y="188" width="500" height="360" fill="#ffffff"/>
+  <text x="1110" y="220" class="groupTitle">API 서비스 (FastAPI / Railway)</text>
 
-  <path class="arrow" d="M1010 290 L1010 380"/>
-  <path class="arrow" d="M910 450 L750 450"/>
-  <path class="arrow" d="M750 500 L850 500"/>
-  <path class="arrow" d="M1170 450 L1250 450"/>
-  <path class="arrow" d="M1010 550 L1010 650"/>
-  <path class="arrow" d="M1010 820 L1010 550"/>
+  <rect class="node" x="952" y="246" width="214" height="124" fill="#f8fafc"/>
+  <text x="1014" y="274" class="nodeTitle">인증 API</text>
+  <text x="968" y="300" class="small">/auth/register</text>
+  <text x="968" y="320" class="small">/auth/login, /auth/logout</text>
+  <text x="968" y="340" class="small">/auth/me</text>
 
-  <text x="75" y="910" class="small">Flow: Browser -> Web -> API -> Queue -> Worker -> External APIs / DB / Storage -> API -> Browser</text>
+  <rect class="node" x="1186" y="246" width="214" height="124" fill="#f8fafc"/>
+  <text x="1240" y="274" class="nodeTitle">조회 API</text>
+  <text x="1202" y="300" class="small">/land/query</text>
+  <text x="1202" y="320" class="small">/history/queries</text>
+  <text x="1202" y="340" class="small">/excel/jobs*</text>
+
+  <rect class="node" x="952" y="390" width="448" height="130" fill="#f8fafc"/>
+  <text x="1118" y="418" class="nodeTitle">애플리케이션 레이어</text>
+  <text x="972" y="446" class="small">입력 검증(Pydantic) · 서비스 로직 · 저장소(SQLAlchemy)</text>
+  <text x="972" y="468" class="small">에러 모델 표준화 · 권한 검사 · 다운로드 URL 발급</text>
+
+  <!-- BACKEND GROUP: Data & Async -->
+  <rect class="group" x="926" y="572" width="500" height="318" fill="#ffffff"/>
+  <text x="1070" y="604" class="groupTitle">데이터/비동기 처리</text>
+
+  <rect class="node" x="952" y="630" width="214" height="106" fill="#f8fafc"/>
+  <text x="1000" y="658" class="nodeTitle">PostgreSQL</text>
+  <text x="968" y="684" class="small">users, query_logs,</text>
+  <text x="968" y="704" class="small">excel_jobs, rows</text>
+
+  <rect class="node" x="1186" y="630" width="214" height="106" fill="#f8fafc"/>
+  <text x="1256" y="658" class="nodeTitle">Redis</text>
+  <text x="1202" y="684" class="small">Job Queue</text>
+  <text x="1202" y="704" class="small">상태 캐시</text>
+
+  <rect class="node" x="952" y="754" width="214" height="116" fill="#f8fafc"/>
+  <text x="989" y="782" class="nodeTitle">Celery Worker</text>
+  <text x="968" y="808" class="small">주소 정규화</text>
+  <text x="968" y="828" class="small">행 단위 비동기 처리</text>
+  <text x="968" y="848" class="small">재시도/실패 격리</text>
+
+  <rect class="node" x="1186" y="754" width="214" height="116" fill="#f8fafc"/>
+  <text x="1230" y="782" class="nodeTitle">Object Storage</text>
+  <text x="1202" y="808" class="small">입력/결과 파일</text>
+  <text x="1202" y="828" class="small">다운로드 아티팩트</text>
+  <text x="1202" y="848" class="small">보관 정책</text>
+
+  <!-- BACKEND GROUP: External -->
+  <rect class="group" x="1450" y="188" width="286" height="702" fill="#ffffff"/>
+  <text x="1520" y="220" class="groupTitle">외부 서비스</text>
+
+  <rect class="node" x="1474" y="250" width="238" height="160" fill="#f8fafc"/>
+  <text x="1554" y="278" class="nodeTitle">공공 데이터 API</text>
+  <text x="1490" y="306" class="small">VWorld / 주소 변환 API</text>
+  <text x="1490" y="328" class="small">공시지가, 지목, 면적, 기준연도</text>
+  <text x="1490" y="350" class="small">요청 제한/에러 대응 필요</text>
+
+  <rect class="node" x="1474" y="430" width="238" height="160" fill="#f8fafc"/>
+  <text x="1542" y="458" class="nodeTitle">배포 인프라</text>
+  <text x="1490" y="486" class="small">Vercel (Web)</text>
+  <text x="1490" y="508" class="small">Railway (API/Worker/Redis)</text>
+  <text x="1490" y="530" class="small">Neon (PostgreSQL)</text>
+
+  <rect class="node" x="1474" y="610" width="238" height="160" fill="#f8fafc"/>
+  <text x="1538" y="638" class="nodeTitle">소셜 로그인(예정)</text>
+  <text x="1490" y="666" class="small">Naver OAuth / Kakao OAuth</text>
+  <text x="1490" y="688" class="small">연동 시 auth_provider 확장</text>
+
+  <!-- ARROWS + LABELS -->
+  <path class="arrow" d="M278 300 L384 300"/>
+  <text x="290" y="286" class="arrowLabel">폼 입력 / 결과 확인</text>
+
+  <path class="arrow" d="M814 330 L952 300"/>
+  <text x="830" y="298" class="arrowLabel">JSON 요청 + 쿠키</text>
+
+  <path class="arrow" d="M1166 690 L952 690"/>
+  <text x="1000" y="676" class="arrowLabel">CRUD (users/jobs/logs)</text>
+
+  <path class="arrow" d="M1294 370 L1294 630"/>
+  <text x="1308" y="520" class="arrowLabel">Job enqueue / status</text>
+
+  <path class="arrow" d="M1166 812 L1186 690"/>
+  <text x="1030" y="760" class="arrowLabel">consume queue</text>
+
+  <path class="arrow" d="M1166 828 L1186 812"/>
+  <text x="1086" y="852" class="arrowLabel">progress update</text>
+
+  <path class="arrow" d="M1400 812 L1474 330"/>
+  <text x="1422" y="560" class="arrowLabel">지번/도로명 조회 요청</text>
+
+  <path class="arrow" d="M1474 360 L1166 842"/>
+  <text x="1330" y="642" class="arrowLabel">공시지가/토지 데이터 응답</text>
+
+  <path class="arrow" d="M1166 812 L1186 812"/>
+  <text x="1174" y="796" class="arrowLabel">결과 파일 업로드</text>
+
+  <path class="arrow" d="M1186 780 L1294 520"/>
+  <text x="1200" y="610" class="arrowLabel">다운로드 URL 생성</text>
+
+  <path class="arrow" d="M952 332 L814 360"/>
+  <text x="820" y="380" class="arrowLabel">응답(JSON) / 에러 코드</text>
+
+  <path class="arrowDashed" d="M1592 610 L1166 300"/>
+  <text x="1386" y="520" class="arrowLabel">OAuth callback (예정)</text>
+
+  <text x="48" y="952" class="small">핵심 흐름: User -> Frontend -> FastAPI -> (PostgreSQL/Redis/Celery/External API) -> Frontend -> User</text>
 </svg>

@@ -99,8 +99,10 @@ body {
   color: #0f172a;
 }
 
-.profile-name.guest {
-  color: #64748b;
+.guest-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .avatar {
@@ -112,6 +114,63 @@ body {
   font-weight: 800;
   display: grid;
   place-items: center;
+}
+
+.profile-menu {
+  position: relative;
+}
+
+.profile-trigger {
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.profile-trigger:hover {
+  background: #f1f5f9;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 180px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  padding: 6px;
+  display: none;
+  z-index: 30;
+}
+
+.profile-menu:hover .profile-dropdown {
+  display: grid;
+  gap: 2px;
+}
+
+.profile-action {
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 14px;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.profile-action:hover {
+  background: #f8fafc;
+}
+
+.profile-action.danger {
+  color: #b91c1c;
 }
 
 .content-wrap {

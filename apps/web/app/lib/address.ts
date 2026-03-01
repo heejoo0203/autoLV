@@ -2,26 +2,54 @@ const CHOSEONG = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ",
 
 export const ROAD_INITIALS = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"] as const;
 
-const ROAD_BASE_BY_INITIAL: Record<string, string[]> = {
-  ㄱ: ["강남대로", "가로수길", "고산로", "금호로", "경춘로", "고덕로"],
-  ㄴ: ["남부순환로", "남산길", "노해로", "능곡로"],
-  ㄷ: ["동남로", "대치로", "대학로", "덕양로", "동부로"],
-  ㄹ: ["로데오길", "로얄로", "래미안로"],
-  ㅁ: ["문화로", "미사대로", "마포대로", "명동길"],
-  ㅂ: ["백범로", "봉은사로", "반포대로", "부평로"],
-  ㅅ: ["세종대로", "서초대로", "삼성로", "성산로", "송파대로"],
-  ㅇ: ["영동대로", "올림픽로", "역삼로", "안양로", "응암로"],
-  ㅈ: ["종로", "중앙로", "잠실로", "장한로", "정릉로"],
-  ㅊ: ["청계천로", "충무로", "천호대로", "창경궁로"],
-  ㅋ: ["코엑스로", "큰길로"],
-  ㅌ: ["테헤란로", "통일로", "태평로"],
-  ㅍ: ["평창로", "포은로", "팔달로"],
-  ㅎ: ["한강대로", "효령로", "화랑로", "홍익로"],
+const DEFAULT_ROADS = [
+  "강남대로",
+  "가로수길",
+  "남부순환로",
+  "동남로",
+  "마포대로",
+  "백범로",
+  "세종대로",
+  "영동대로",
+  "종로",
+  "청계천로",
+  "테헤란로",
+  "한강대로",
+];
+
+const ROADS_BY_SIGUNGU: Record<string, string[]> = {
+  강남구: [
+    "강남대로",
+    "개포로",
+    "논현로",
+    "도곡로",
+    "도곡로11길",
+    "도곡로13길",
+    "도곡로14길",
+    "도곡로17길",
+    "도곡로18길",
+    "도곡로19길",
+    "도곡로21길",
+    "도곡로22길",
+    "봉은사로",
+    "삼성로",
+    "선릉로",
+    "압구정로",
+    "언주로",
+    "영동대로",
+    "역삼로",
+    "테헤란로",
+    "학동로",
+  ],
+  서초구: ["강남대로", "남부순환로", "동작대로", "반포대로", "서초대로", "양재대로", "잠원로"],
+  송파구: ["가락로", "마천로", "백제고분로", "삼전로", "송파대로", "양재대로", "올림픽로"],
+  마포구: ["독막로", "마포대로", "망원로", "백범로", "성미산로", "신촌로", "월드컵로"],
 };
 
 export function roadsByInitial(sigungu: string, initial: string): string[] {
-  const base = ROAD_BASE_BY_INITIAL[initial] ?? [];
-  return base.map((name) => `${sigungu} ${name}`);
+  if (!initial) return [];
+  const base = ROADS_BY_SIGUNGU[sigungu] ?? DEFAULT_ROADS;
+  return base.filter((name) => initialConsonant(name) === initial);
 }
 
 export function initialConsonant(text: string): string {
@@ -33,4 +61,3 @@ export function initialConsonant(text: string): string {
   const idx = Math.floor((code - 0xac00) / 588);
   return CHOSEONG[idx] ?? "";
 }
-

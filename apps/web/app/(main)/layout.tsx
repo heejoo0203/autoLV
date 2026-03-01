@@ -26,12 +26,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Link href="/search" className={`nav-item ${pathname === "/search" ? "active" : ""}`}>
               개별조회
             </Link>
-            <button className="nav-item" onClick={() => openAuth("login")}>
-              로그인
-            </button>
-            <button className="nav-item primary" onClick={() => openAuth("register")}>
-              회원가입
-            </button>
           </nav>
         ) : (
           <nav className="center-nav">
@@ -49,21 +43,42 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
         <div className="right-profile">
           {isLoggedIn ? (
-            <>
-              <div className="avatar">{userLabel.charAt(0).toUpperCase()}</div>
-              <span className="profile-name">{userLabel}</span>
-              <button
-                className="nav-item subtle"
-                onClick={async () => {
-                  await logout();
-                  router.push("/search");
-                }}
-              >
-                로그아웃
+            <div className="profile-menu">
+              <button className="profile-trigger" type="button">
+                <div className="avatar">{userLabel.charAt(0).toUpperCase()}</div>
+                <span className="profile-name">{userLabel}</span>
               </button>
-            </>
+              <div className="profile-dropdown">
+                <button className="profile-action" type="button">
+                  회원 정보 수정
+                </button>
+                <button className="profile-action" type="button">
+                  비밀번호 변경
+                </button>
+                <button className="profile-action" type="button">
+                  회원 탈퇴
+                </button>
+                <button
+                  className="profile-action danger"
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                    router.push("/search");
+                  }}
+                >
+                  로그아웃
+                </button>
+              </div>
+            </div>
           ) : (
-            <span className="profile-name guest">비로그인</span>
+            <div className="guest-actions">
+              <button className="nav-item" onClick={() => openAuth("login")}>
+                로그인
+              </button>
+              <button className="nav-item primary" onClick={() => openAuth("register")}>
+                회원가입
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -71,4 +86,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     </div>
   );
 }
-

@@ -21,7 +21,7 @@ export default function SearchPage() {
   const [sigungu, setSigungu] = useState("");
   const [dong, setDong] = useState("");
 
-  const [roadInitial, setRoadInitial] = useState<(typeof ROAD_INITIALS)[number]>("ㄱ");
+  const [roadInitial, setRoadInitial] = useState<"" | (typeof ROAD_INITIALS)[number]>("");
   const [roadName, setRoadName] = useState("");
 
   const [sanType, setSanType] = useState<(typeof SAN_OPTIONS)[number]>("일반");
@@ -68,12 +68,14 @@ export default function SearchPage() {
     setSido(value);
     setSigungu("");
     setDong("");
+    setRoadInitial("");
     setRoadName("");
   };
 
   const onSelectSigungu = (value: string) => {
     setSigungu(value);
     setDong("");
+    setRoadInitial("");
     setRoadName("");
   };
 
@@ -164,10 +166,11 @@ export default function SearchPage() {
                   size={8}
                   value={roadInitial}
                   onChange={(e) => {
-                    setRoadInitial(e.target.value as (typeof ROAD_INITIALS)[number]);
+                    setRoadInitial(e.target.value as "" | (typeof ROAD_INITIALS)[number]);
                     setRoadName("");
                   }}
                 >
+                  <option value="">선택</option>
                   {ROAD_INITIALS.map((ch) => (
                     <option key={ch} value={ch}>
                       {ch}

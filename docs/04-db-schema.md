@@ -1,24 +1,45 @@
-# 데이터 저장 구조 (현재 구현 기준)
+# 데이터 저장 구조 (v1 구현 기준)
 
-## 1. 서버 DB (AS-IS)
-현재 서버 DB는 SQLite 기반이며 사용자 인증 관련 데이터만 저장합니다.
+## 1. 서버 DB (SQLite)
+현재 서버 DB는 SQLite(`apps/api/autolv.db`)를 사용한다.
 
-### users
+### 1.1 users
 - `id` (String(36), PK)
-- `email` (String(255), UNIQUE, NOT NULL)
+- `email` (String(255), UNIQUE, NOT NULL, INDEX)
 - `password_hash` (String(255), NOT NULL)
 - `full_name` (String(100), NULL)
 - `role` (String(20), NOT NULL, 기본값 `user`)
 - `auth_provider` (String(20), NOT NULL, 기본값 `local`)
-- `created_at` (DateTime, NOT NULL)
-- `updated_at` (DateTime, NOT NULL)
+- `created_at` (DateTime(timezone=True), NOT NULL)
+- `updated_at` (DateTime(timezone=True), NOT NULL)
+
+### 1.2 bulk_jobs
+- `id` (String(36), PK)
+- `user_id` (String(36), FK -> `users.id`, NOT NULL, INDEX)
+- `file_name` (String(255), NOT NULL)
+- `upload_path` (String(500), NOT NULL)
+- `result_path` (String(500), NULL)
+- `status` (String(20), NOT NULL, INDEX)
+- `total_rows` (Integer, NOT NULL, 기본값 0)
+- `processed_rows` (Integer, NOT NULL, 기본값 0)
+- `success_rows` (Integer, NOT NULL, 기본값 0)
+- `failed_rows` (Integer, NOT NULL, 기본값 0)
+- `error_message` (Text, NULL)
+- `created_at` (DateTime(timezone=True), NOT NULL)
+- `updated_at` (DateTime(timezone=True), NOT NULL)
+
+상태 값:
+- `queued`
+- `processing`
+- `completed`
+- `failed`
 
 비고:
-- 관리자 계정 생성 스크립트에서 `role=admin`을 사용합니다.
-- SQLAlchemy `Base.metadata.create_all()`로 테이블을 생성합니다.
+- 업로드 파일/결과 파일은 DB BLOB이 아닌 파일 경로로 관리한다.
+- API 시작 시 `Base.metadata.create_all()`로 테이블을 생성한다.
 
-## 2. 클라이언트 저장소 (AS-IS)
-조회기록은 현재 서버 DB가 아니라 브라우저 `localStorage`에 저장됩니다.
+## 2. 클라이언트 저장소
+개별조회 기록은 현재 서버 DB가 아니라 브라우저 `localStorage`를 사용한다.
 
 키:
 - `autolv_search_history_v1`
@@ -47,7 +68,12 @@
 ]
 ```
 
-## 3. 초기화/시드
+## 3. 파일 저장소
+- 기본 경로: `apps/api/storage/bulk`
+- 업로드 파일: `uploads/{job_id}_{원본파일명}`
+- 결과 파일: `results/{job_id}_{원본파일명}_result.xlsx`
+
+## 4. 초기화/시드
 명령:
 ```bash
 cd apps/api
@@ -60,9 +86,7 @@ python scripts/reset_db_and_seed_admin.py
   - 이메일: `admin@admin.com`
   - 비밀번호: `admin1234`
 
-## 4. 다음 단계 (TO-BE)
-다음 릴리스에서 아래 구조를 서버 DB에 추가할 예정입니다.
-- 단건 조회 기록 테이블(`query_logs`)
-- 파일 업로드 작업 테이블(`excel_jobs`)
-- 파일 행 단위 처리 결과 테이블(`excel_job_rows`)
-- refresh token 저장/철회 테이블(`refresh_tokens`, 선택)
+## 5. 다음 단계 (TO-BE)
+- 조회기록 서버 영구 저장 테이블 추가
+- PostgreSQL/PostGIS 전환(`parcels`, 공간 인덱스)
+- Redis 캐시 도입(PNU/지도 조회 성능 최적화)

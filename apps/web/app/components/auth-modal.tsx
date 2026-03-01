@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { useState } from "react";
 
 import { useAuth } from "@/app/components/auth-provider";
@@ -14,11 +15,24 @@ export function AuthModal() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState("");
   const [registerAgreements, setRegisterAgreements] = useState(false);
+  const [backdropPressed, setBackdropPressed] = useState(false);
 
   if (!authOpen) return null;
 
+  const onOverlayMouseDown = (event: MouseEvent<HTMLDivElement>) => {
+    setBackdropPressed(event.target === event.currentTarget);
+  };
+
+  const onOverlayMouseUp = (event: MouseEvent<HTMLDivElement>) => {
+    const isBackdrop = event.target === event.currentTarget;
+    if (backdropPressed && isBackdrop) {
+      closeAuth();
+    }
+    setBackdropPressed(false);
+  };
+
   return (
-    <div className="auth-overlay" onClick={closeAuth}>
+    <div className="auth-overlay" onMouseDown={onOverlayMouseDown} onMouseUp={onOverlayMouseUp}>
       <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
         <div className="auth-modal-head">
           <h3>{authMode === "login" ? "로그인" : "회원가입"}</h3>

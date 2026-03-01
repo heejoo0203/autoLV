@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-import json
 import re
-import time
-from http.client import RemoteDisconnected
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from fastapi import HTTPException, status
 
 from app.core.config import settings
 from app.schemas.land import LandLookupRequest, LandLookupResponse, LandResultRow
+
+
+_VWORLD_SESSION: requests.Session | None = None
 
 
 def lookup_land_prices(payload: LandLookupRequest) -> LandLookupResponse:
@@ -305,58 +307,56 @@ def call_vworld_json(path: str, params: dict[str, str]) -> dict[str, Any]:
 
     query = urlencode(merged, doseq=True)
     url = f"{settings.vworld_api_base_url.rstrip('/')}{path}?{query}"
-    max_attempts = max(1, settings.vworld_retry_count + 1)
-    body = ""
-
-    for attempt in range(max_attempts):
-        req = Request(
-            url=url,
-            method="GET",
+    try:
+        response = _get_vworld_session().get(
+            url,
             headers={
                 "Accept": "application/json",
                 "User-Agent": settings.vworld_user_agent,
                 "Connection": "close",
             },
+            timeout=settings.vworld_timeout_seconds,
         )
-        try:
-            with urlopen(req, timeout=settings.vworld_timeout_seconds) as response:
-                body = response.read().decode("utf-8")
-                break
-        except HTTPError as exc:
-            if _should_retry_http_error(exc.code, attempt, max_attempts):
-                _sleep_backoff(attempt)
-                continue
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail={"code": "VWORLD_HTTP_ERROR", "message": f"VWorld HTTP 오류: {exc.code}"},
-            ) from exc
-        except (URLError, RemoteDisconnected, TimeoutError, ConnectionResetError, OSError) as exc:
-            if attempt < max_attempts - 1:
-                _sleep_backoff(attempt)
-                continue
-            reason = getattr(exc, "reason", str(exc))
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail={"code": "VWORLD_UNREACHABLE", "message": f"VWorld 연결 실패: {reason}"},
-            ) from exc
+    except requests.RequestException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "VWORLD_UNREACHABLE", "message": f"VWorld 연결 실패: {exc}"},
+        ) from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "VWORLD_HTTP_ERROR", "message": f"VWorld HTTP 오류: {response.status_code}"},
+        )
 
     try:
-        return json.loads(body)
-    except json.JSONDecodeError as exc:
+        return response.json()
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "VWORLD_INVALID_JSON", "message": "VWorld 응답을 해석하지 못했습니다."},
         ) from exc
 
 
-def _should_retry_http_error(status_code: int, attempt: int, max_attempts: int) -> bool:
-    if attempt >= max_attempts - 1:
-        return False
-    # VWorld 및 네트워크 게이트웨이의 일시 장애에 대해서만 재시도한다.
-    return status_code in {429, 500, 502, 503, 504}
+def _get_vworld_session() -> requests.Session:
+    global _VWORLD_SESSION
+    if _VWORLD_SESSION is not None:
+        return _VWORLD_SESSION
 
+    retries = Retry(
+        total=max(0, settings.vworld_retry_count),
+        connect=max(0, settings.vworld_retry_count),
+        read=max(0, settings.vworld_retry_count),
+        status=max(0, settings.vworld_retry_count),
+        backoff_factor=max(0.0, settings.vworld_retry_backoff_seconds),
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset(["GET"]),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retries, pool_connections=10, pool_maxsize=20)
 
-def _sleep_backoff(attempt: int) -> None:
-    delay = settings.vworld_retry_backoff_seconds * (2**attempt)
-    if delay > 0:
-        time.sleep(delay)
+    session = requests.Session()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    _VWORLD_SESSION = session
+    return session

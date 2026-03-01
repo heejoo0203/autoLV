@@ -46,6 +46,20 @@ def _normalize_database_url(database_url: str) -> str:
     return value
 
 
+def _resolve_project_root() -> Path:
+    current = Path(__file__).resolve()
+    ancestors = [current.parent, *current.parents]
+    for candidate in ancestors:
+        if (candidate / "apps").exists() or (candidate / "docs").exists():
+            return candidate
+
+    cwd = Path.cwd()
+    if (cwd / "apps").exists() or (cwd / "docs").exists():
+        return cwd
+
+    return current.parent
+
+
 def _resolve_road_name_file_path(configured: str) -> str:
     candidates: list[Path] = []
 
@@ -53,7 +67,7 @@ def _resolve_road_name_file_path(configured: str) -> str:
     if configured_path:
         candidates.append(configured_path)
 
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = _resolve_project_root()
     candidates.extend(
         [
             repo_root / "docs" / "TN_SPRD_RDNM.txt",
@@ -78,7 +92,7 @@ def _resolve_ld_code_file_path(configured: str) -> str:
     if configured_path:
         candidates.append(configured_path)
 
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = _resolve_project_root()
     candidates.extend(
         [
             repo_root / "apps" / "web" / "public" / "ld_codes.json",

@@ -31,13 +31,30 @@ class Settings(BaseSettings):
     road_name_file_path: str = Field(default="", alias="ROAD_NAME_FILE_PATH")
 
 
-settings = Settings()
+def _resolve_road_name_file_path(configured: str) -> str:
+    candidates: list[Path] = []
 
-# Repository fallback order:
-# 1) docs/TN_SPRD_RDNM.txt
-# 2) TN_SPRD_RDNM.txt (legacy root path)
-if not settings.road_name_file_path:
+    configured_path = Path(configured).expanduser() if configured else None
+    if configured_path:
+        candidates.append(configured_path)
+
     repo_root = Path(__file__).resolve().parents[4]
-    docs_path = repo_root / "docs" / "TN_SPRD_RDNM.txt"
-    legacy_path = repo_root / "TN_SPRD_RDNM.txt"
-    settings.road_name_file_path = str(docs_path if docs_path.exists() else legacy_path)
+    candidates.extend(
+        [
+            repo_root / "docs" / "TN_SPRD_RDNM.txt",
+            repo_root / "TN_SPRD_RDNM.txt",
+            Path.cwd() / "docs" / "TN_SPRD_RDNM.txt",
+            Path.cwd() / "TN_SPRD_RDNM.txt",
+        ]
+    )
+
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate.resolve())
+
+    # Keep deterministic fallback even when file is missing.
+    return str((repo_root / "docs" / "TN_SPRD_RDNM.txt").resolve())
+
+
+settings = Settings()
+settings.road_name_file_path = _resolve_road_name_file_path(settings.road_name_file_path)

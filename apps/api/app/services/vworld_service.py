@@ -27,13 +27,14 @@ def lookup_land_prices(payload: LandLookupRequest) -> LandLookupResponse:
             main_no=payload.main_no or "",
             sub_no=payload.sub_no or "",
         )
-        address_summary = f"{payload.ld_code} {payload.san_type} {payload.main_no}-{payload.sub_no or '0'}"
+        address_summary = f"지번 {payload.main_no}-{payload.sub_no or '0'}"
     else:
         resolved = resolve_pnu_from_road(payload)
         pnu = resolved["pnu"]
         address_summary = resolved["summary"]
 
     rows = fetch_individual_land_price_rows(pnu)
+    address_summary = summarize_rows(address_summary, rows)
     return LandLookupResponse(
         search_type=payload.search_type,
         pnu=pnu,
@@ -250,6 +251,18 @@ def to_price_text(value: Any) -> str:
         return f"{int(raw):,} 원/㎡"
     except ValueError:
         return f"{raw} 원/㎡"
+
+
+def summarize_rows(fallback: str, rows: list[LandResultRow]) -> str:
+    if rows:
+        first = rows[0]
+        location = first.토지소재지.strip()
+        jibun = first.지번.strip()
+        if location and jibun:
+            return f"{location} {jibun}"
+        if location:
+            return location
+    return fallback
 
 
 def parse_positive_int(value: str, field_name: str) -> int:

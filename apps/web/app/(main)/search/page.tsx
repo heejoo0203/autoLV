@@ -63,7 +63,7 @@ export default function SearchPage() {
     const rec = loadSearchHistory().find((x) => x.id === recordId && x.ownerKey === ownerKey);
     if (!rec) return;
     setRows(rec.결과);
-    setMessage(`이력에서 선택한 주소 결과입니다: ${rec.주소요약}`);
+    setMessage(`이력에서 선택한 주소 결과입니다: ${toDisplayAddress(rec.주소요약, rec.결과)}`);
   }, [params, user]);
 
   const loadCodes = async () => {
@@ -481,4 +481,15 @@ function extractError(payload: unknown, fallback: string): string {
     if (typeof message === "string") return message;
   }
   return fallback;
+}
+
+function toDisplayAddress(summary: string, results: LandResultRow[]): string {
+  if (results.length > 0) {
+    const first = results[0];
+    const location = (first.토지소재지 ?? "").trim();
+    const jibun = (first.지번 ?? "").trim();
+    if (location && jibun) return `${location} ${jibun}`;
+    if (location) return location;
+  }
+  return summary;
 }

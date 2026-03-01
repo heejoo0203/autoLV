@@ -28,12 +28,13 @@ export function addSearchHistory(params: {
   results: LandResultRow[];
 }) {
   const existing = loadSearchHistory();
+  const displaySummary = formatSummary(params.summary, params.results);
   const next: SearchHistoryRecord = {
     id: createId(),
     ownerKey: params.ownerKey,
     시각: new Date().toISOString(),
     유형: params.type,
-    주소요약: params.summary,
+    주소요약: displaySummary,
     결과: params.results,
   };
   const merged = [next, ...existing].slice(0, 200);
@@ -43,4 +44,15 @@ export function addSearchHistory(params: {
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatSummary(fallback: string, results: LandResultRow[]): string {
+  if (results.length > 0) {
+    const first = results[0];
+    const location = (first.토지소재지 ?? "").trim();
+    const jibun = (first.지번 ?? "").trim();
+    if (location && jibun) return `${location} ${jibun}`.trim();
+    if (location) return location;
+  }
+  return fallback;
 }

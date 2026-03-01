@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
 import { loadSearchHistory } from "@/app/lib/history-storage";
+import type { SearchHistoryRecord } from "@/app/lib/types";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function HistoryPage() {
                 <td>{idx + 1}</td>
                 <td>{formatKST(row.시각)}</td>
                 <td>{row.유형}</td>
-                <td>{row.주소요약}</td>
+                <td>{displayAddress(row)}</td>
                 <td>{row.결과.length}</td>
               </tr>
             ))}
@@ -76,4 +77,15 @@ function formatKST(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString("ko-KR", { hour12: false });
+}
+
+function displayAddress(row: SearchHistoryRecord) {
+  if (row.결과.length > 0) {
+    const first = row.결과[0];
+    const location = (first.토지소재지 ?? "").trim();
+    const jibun = (first.지번 ?? "").trim();
+    if (location && jibun) return `${location} ${jibun}`;
+    if (location) return location;
+  }
+  return row.주소요약;
 }

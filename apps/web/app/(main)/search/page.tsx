@@ -50,6 +50,7 @@ function SearchPageClient() {
   const [buildingMainNo, setBuildingMainNo] = useState("");
   const [buildingSubNo, setBuildingSubNo] = useState("");
   const [searching, setSearching] = useState(false);
+  const [showNoResult, setShowNoResult] = useState(false);
 
   const [message, setMessage] = useState("주소를 선택한 뒤 검색 버튼을 눌러주세요.");
   const [rows, setRows] = useState<LandResultRow[]>([]);
@@ -211,6 +212,7 @@ function SearchPageClient() {
     }
 
     setSearching(true);
+    setShowNoResult(false);
     setMessage("조회 중입니다...");
     try {
       const body =
@@ -230,6 +232,7 @@ function SearchPageClient() {
       const okPayload = payload as LandLookupApiResponse;
       const nextRows = okPayload.rows ?? [];
       setRows(nextRows);
+      setShowNoResult(nextRows.length === 0);
       const summary = okPayload.address_summary || createSummaryFallback(searchTab);
       setMessage(`검색 완료: ${summary} (총 ${nextRows.length}건)`);
 
@@ -246,6 +249,7 @@ function SearchPageClient() {
     } catch (error) {
       const text = error instanceof Error ? error.message : "조회 중 오류가 발생했습니다.";
       setRows([]);
+      setShowNoResult(false);
       setMessage(text);
     } finally {
       setSearching(false);
@@ -362,18 +366,22 @@ function SearchPageClient() {
         </div>
 
         {searchTab === "지번" ? (
-          <div className="inline-form inline-form-center">
+          <div className="inline-form inline-form-center jibun-inline-form">
             <span className="inline-label">지번 입력</span>
-            <select className="mini-select" value={sanType} onChange={(e) => setSanType(e.target.value as (typeof SAN_OPTIONS)[number])}>
+            <select
+              className="mini-select jibun-kind-select"
+              value={sanType}
+              onChange={(e) => setSanType(e.target.value as (typeof SAN_OPTIONS)[number])}
+            >
               {SAN_OPTIONS.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
               ))}
             </select>
-            <input className="mini-input" value={mainNo} onChange={(e) => setMainNo(e.target.value)} placeholder="본번" />
-            <span>-</span>
-            <input className="mini-input" value={subNo} onChange={(e) => setSubNo(e.target.value)} placeholder="부번" />
+            <input className="mini-input jibun-num-input" value={mainNo} onChange={(e) => setMainNo(e.target.value)} placeholder="본번" />
+            <span className="inline-sep">-</span>
+            <input className="mini-input jibun-num-input" value={subNo} onChange={(e) => setSubNo(e.target.value)} placeholder="부번" />
           </div>
         ) : (
           <div className="inline-form">
@@ -393,7 +401,7 @@ function SearchPageClient() {
       <section className="panel">
         <h2>검색 결과</h2>
         {rows.length === 0 ? (
-          <p className="hint">검색 결과가 없습니다.</p>
+          <p className="hint">{showNoResult ? "검색 결과가 없습니다." : "주소를 입력하여 조회해주세요."}</p>
         ) : (
           <table className="data-table mobile-card-table">
             <thead>

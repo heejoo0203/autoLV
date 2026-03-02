@@ -1,17 +1,19 @@
-# 데이터 저장 구조 (v1 구현 기준)
+# 데이터 저장 구조 (v1.0.0 기준)
 
-## 1. 서버 DB (SQLite)
-현재 서버 DB는 SQLite(`apps/api/autolv.db`)를 사용한다.
+## 1. 서버 DB
+- 로컬 개발 기본 DB: SQLite (`apps/api/autolv.db`)
+- 운영 배포 DB: PostgreSQL (`postgresql+psycopg://...`)
+- 스키마 관리: Alembic (`apps/api/alembic`)
 
-운영 배포 기준:
-- `DATABASE_URL`을 PostgreSQL(`postgresql+psycopg://...`)로 설정한다.
-- 스키마 변경은 Alembic(`apps/api/alembic`)으로 관리한다.
+초기 마이그레이션:
+- `20260302_0001` (`users`, `bulk_jobs`)
 
 ### 1.1 users
 - `id` (String(36), PK)
 - `email` (String(255), UNIQUE, NOT NULL, INDEX)
 - `password_hash` (String(255), NOT NULL)
 - `full_name` (String(100), NULL)
+- `profile_image_path` (String(500), NULL)
 - `role` (String(20), NOT NULL, 기본값 `user`)
 - `auth_provider` (String(20), NOT NULL, 기본값 `local`)
 - `created_at` (DateTime(timezone=True), NOT NULL)
@@ -40,7 +42,7 @@
 
 비고:
 - 업로드 파일/결과 파일은 DB BLOB이 아닌 파일 경로로 관리한다.
-- API 시작 시 `Base.metadata.create_all()`로 테이블을 생성한다.
+- `alembic upgrade head` 기준으로 운영 스키마를 관리한다.
 
 ## 2. 클라이언트 저장소
 개별조회 기록은 현재 서버 DB가 아니라 브라우저 `localStorage`를 사용한다.
@@ -76,6 +78,7 @@
 - 기본 경로: `apps/api/storage/bulk`
 - 업로드 파일: `uploads/{job_id}_{원본파일명}`
 - 결과 파일: `results/{job_id}_{원본파일명}_result.xlsx`
+- 프로필 이미지: `apps/api/storage/profile_images`
 
 ## 4. 초기화/시드
 명령:

@@ -1,6 +1,6 @@
 # 폴더 구조
 
-## 1. 현재 구조 (v1 기준)
+## 1. 현재 구조 (v1.0.0 기준)
 ```text
 autoLV/
   apps/
@@ -89,17 +89,25 @@ autoLV/
     04-db-schema.md
     05-folder-structure.md
     06-deployment.md
+    07-release-notes-v1.0.0.md
     feature-spec.md
     architecture.svg
     TN_SPRD_RDNM.txt
     samples/
-  backend/   # 레거시 코드
-  crawler/   # 레거시 코드
-  frontend/  # 레거시 코드
   infra/
     docker/
       Dockerfile.api
       docker-compose.v1.yml
+    vworld-proxy/
+      app/
+      deploy/
+        autolv-vworld-proxy.service
+      .env.example
+      README.md
+      requirements.txt
+  backend/   # 레거시 코드
+  crawler/   # 레거시 코드
+  frontend/  # 레거시 코드
   packages/
   README.md
 ```
@@ -108,8 +116,9 @@ autoLV/
 - `docs/TN_SPRD_RDNM.txt`는 도로명 자음/목록 필터링 원천 파일이다.
 - `apps/api/storage`는 런타임 산출물 경로이며 `.gitignore`로 제외된다.
 - `apps/api/alembic`은 운영 DB(PostgreSQL) 스키마 마이그레이션 경로다.
-- 파일조회 결과 샘플(`docs/samples/*_result.xlsx`)도 `.gitignore`로 제외된다.
+- 파일조회 결과 샘플(`docs/samples/*_result.xlsx`)은 `.gitignore`로 제외된다.
 - 조회기록은 현재 `apps/web`의 `localStorage` 기반이다.
+- `infra/vworld-proxy`는 VWorld 우회용 고정 IP 프록시 배포 모듈이다.
 
 ## 3. 다음 단계 구조 확장
 - `apps/api`에 지도조회/공간집계 모듈 추가

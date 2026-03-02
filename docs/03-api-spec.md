@@ -1,7 +1,12 @@
-# API 명세 (v1 구현 반영)
+# API 명세 (v1.0.0)
 
 기본 경로: `/api/v1`  
 인증: 쿠키 기반 JWT(`access_token`, `refresh_token`)
+
+## 0. VWorld 호출 정책
+- `/land/single`는 VWorld 직접 호출을 먼저 시도한다.
+- 직접 호출 실패 시 `VWORLD_PROXY_URL`이 설정되어 있으면 프록시 경로를 재시도한다.
+- 두 경로가 모두 실패하면 `VWORLD_DIRECT_AND_PROXY_FAILED`로 직접/프록시 실패 원인을 함께 반환한다.
 
 ## 1. 공통 API
 ### GET `/`
@@ -357,7 +362,15 @@ FastAPI 기본 `detail` 형식을 사용한다.
 
 주요 오류 코드:
 - `VWORLD_KEY_MISSING`
-- `VWORLD_INVALID_KEY` 계열
+- `VWORLD_INVALID_KEY` 계열 (`VWORLD_<resultCode>`)
+- `VWORLD_UNREACHABLE`
+- `VWORLD_HTTP_ERROR`
+- `VWORLD_INVALID_JSON`
+- `VWORLD_PROXY_MISSING`
+- `VWORLD_PROXY_UNREACHABLE`
+- `VWORLD_PROXY_HTTP_ERROR`
+- `VWORLD_PROXY_INVALID_JSON`
+- `VWORLD_DIRECT_AND_PROXY_FAILED`
 - `ROAD_FILE_NOT_FOUND`
 - `ROAD_GEOCODE_FAILED`
 - `PARCEL_NOT_FOUND`

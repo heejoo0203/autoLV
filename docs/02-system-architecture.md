@@ -1,11 +1,12 @@
 # 시스템 아키텍처
 
-## 1. 현재 아키텍처 (AS-IS)
+## 1. 현재 아키텍처 (AS-IS, v1.0.0)
 - Frontend: Next.js 15 (App Router), TypeScript
-- Backend: FastAPI
-- Database: SQLite (`users`, `bulk_jobs`)
-- File Storage: 로컬 스토리지(`apps/api/storage/bulk`, `apps/api/storage/profile_images`)
+- Backend: FastAPI (Railway)
+- Database: PostgreSQL (운영), SQLite (로컬 개발)
+- File Storage: API 로컬 스토리지(`apps/api/storage/bulk`, `apps/api/storage/profile_images`)
 - External API: VWorld (주소 변환 + 개별공시지가)
+- 안정화 구성: EC2 고정 IP VWorld 프록시(`infra/vworld-proxy`)
 - Road Data: `docs/TN_SPRD_RDNM.txt` (도로명 자음/목록 필터링)
 - Client History: 브라우저 `localStorage`(개별조회 기록)
 
@@ -18,9 +19,10 @@
 ### 2.2 개별조회(지번/도로명)
 1. Web이 검색 조건을 `/api/v1/land/single`로 전송
 2. API가 검색 유형별로 PNU를 생성/변환
-3. API가 VWorld API 호출
-4. API가 연도별 최신 데이터만 선별해 내림차순 반환
-5. Web이 결과 테이블 렌더링, 로그인 사용자는 조회기록 저장
+3. API가 VWorld API를 직접 호출
+4. 직접 호출 실패 시 EC2 프록시(`VWORLD_PROXY_URL`)로 자동 우회
+5. API가 연도별 최신 데이터만 선별해 내림차순 반환
+6. Web이 결과 테이블 렌더링, 로그인 사용자는 조회기록 저장
 
 ### 2.3 도로명 선택기
 1. Web이 `/api/v1/land/road-initials`로 시/도, 시/군/구 요청
@@ -37,16 +39,24 @@
 6. 완료 시 `/api/v1/bulk/jobs/{job_id}/download`로 결과 다운로드
 7. 이력 정리는 `/api/v1/bulk/jobs/delete`로 다중 삭제
 
+### 2.5 VWorld 복원력(Resilience) 경로
+1. 1차 시도: API -> VWorld 직접 호출
+2. 실패 시: API -> EC2 Proxy -> VWorld
+3. 둘 다 실패하면 API는 `VWORLD_DIRECT_AND_PROXY_FAILED` 오류와 함께 직접/프록시 실패 원인을 동시 반환
+
 ## 3. 아키텍처 다이어그램
-현재 다이어그램은 사용자/프론트/백엔드의 흐름을 한눈에 볼 수 있도록 유지합니다.
+현재 다이어그램은 사용자/프론트/백엔드의 흐름을 한눈에 볼 수 있도록 유지한다.
 
 ![시스템 아키텍처](./architecture.svg)
 
 ## 4. 배포 기준 아키텍처 (v1)
-- Web과 API를 분리 배포
-- API 환경변수로 VWorld 키/도메인/CORS 제어
-- 운영 DB는 PostgreSQL을 사용하고 Alembic으로 스키마를 관리
-- 업로드/결과/프로필 이미지 저장소 경로를 런타임에서 보존
+- Web: Vercel
+- API: Railway
+- DB: Railway PostgreSQL
+- VWorld 우회: AWS EC2(Seoul) + Elastic IP + FastAPI Proxy
+- API 환경변수로 VWorld 키/도메인/CORS/프록시를 제어
+- 운영 DB는 PostgreSQL + Alembic 마이그레이션으로 관리
+- 업로드/결과/프로필 이미지 저장 경로를 런타임에서 보존
 - 헬스체크: `GET /health`
 
 ## 5. 다음 단계 (TO-BE)

@@ -9,6 +9,7 @@ const DEFAULT_VWORLD_BASE_URL = "https://api.vworld.kr";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const preferredRegion = "icn1";
 
 export async function POST(request: NextRequest) {
   const proxyToken = process.env.VWORLD_PROXY_TOKEN?.trim() ?? "";
@@ -73,4 +74,3 @@ async function safeJson(request: NextRequest): Promise<unknown> {
     return {};
   }
 }
-

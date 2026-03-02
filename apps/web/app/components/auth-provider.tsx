@@ -123,8 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     setAuthLoading(true);
+    // Optimistically update UI first so logout feels instant.
+    setUser(null);
+    setAuthMode("login");
+    setAuthOpen(false);
+    setAuthMessage("로그아웃 처리 중입니다...");
+
     let remoteSuccess = false;
-    let stillLoggedIn = false;
     try {
       for (const base of resolveApiBases()) {
         try {
@@ -135,26 +140,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (res.ok) {
             remoteSuccess = true;
             preferredApiBase = base;
+            break;
           }
         } catch {
           // Ignore and try the next base.
         }
       }
-      const me = await refreshMe();
-      stillLoggedIn = Boolean(me);
     } catch {
       remoteSuccess = false;
     } finally {
-      if (!stillLoggedIn) {
-        setUser(null);
-      }
-      setAuthMode("login");
-      setAuthOpen(false);
-      if (stillLoggedIn) {
-        setAuthMessage("로그아웃에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-      } else {
-        setAuthMessage(remoteSuccess ? "로그아웃되었습니다." : "서버 연결 문제로 로컬 로그아웃 처리되었습니다.");
-      }
+      setAuthMessage(remoteSuccess ? "로그아웃되었습니다." : "서버 연결 문제로 로컬 로그아웃 처리되었습니다.");
       setAuthLoading(false);
     }
   };
@@ -294,21 +289,32 @@ function normalizeBase(base: string): string {
 function resolveApiBases(): string[] {
   const envBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   const bases: string[] = [];
+  const isBrowser = typeof window !== "undefined";
+  const hostname = isBrowser ? window.location.hostname.toLowerCase() : "";
+  const hasProxy = Boolean(envBase);
+  const isLocalHost =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".local");
 
   if (preferredApiBase) {
     bases.push(normalizeBase(preferredApiBase));
   }
 
+  if (isBrowser && hasProxy) {
+    bases.push(normalizeBase(window.location.origin));
+  }
+
   if (envBase) bases.push(normalizeBase(envBase));
 
-  if (typeof window !== "undefined") {
+  if (isBrowser && isLocalHost) {
     const protocol = window.location.protocol === "https:" ? "https:" : "http:";
     const hostBase = `${protocol}//${window.location.hostname}:8000`;
     bases.push(normalizeBase(hostBase));
     bases.push("http://localhost:8000");
+    bases.push(DEFAULT_API_BASE);
   }
 
-  bases.push(DEFAULT_API_BASE);
   return Array.from(new Set(bases));
 }
 

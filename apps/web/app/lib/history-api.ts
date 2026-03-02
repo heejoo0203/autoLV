@@ -45,16 +45,26 @@ function normalizeBase(base: string): string {
 function resolveApiBases(): string[] {
   const envBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   const bases: string[] = [];
+  const isBrowser = typeof window !== "undefined";
+  const hasProxy = Boolean(envBase);
+  const hostname = isBrowser ? window.location.hostname.toLowerCase() : "";
+  const isLocalHost =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".local");
 
+  if (isBrowser && hasProxy) {
+    bases.push(normalizeBase(window.location.origin));
+  }
   if (envBase) bases.push(normalizeBase(envBase));
 
-  if (typeof window !== "undefined") {
+  if (isBrowser && isLocalHost) {
     const protocol = window.location.protocol === "https:" ? "https:" : "http:";
     bases.push(`${protocol}//${window.location.hostname}:8000`);
     bases.push("http://localhost:8000");
+    bases.push(DEFAULT_API_BASE);
   }
 
-  bases.push(DEFAULT_API_BASE);
   return Array.from(new Set(bases.map(normalizeBase)));
 }
 

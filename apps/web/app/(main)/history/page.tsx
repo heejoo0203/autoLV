@@ -63,7 +63,7 @@ export default function HistoryPage() {
       {records.length === 0 ? (
         <p className="hint">아직 저장된 개별조회 기록이 없습니다.</p>
       ) : (
-        <table className="data-table">
+        <table className="data-table history-table">
           <thead>
             <tr>
               <th>순번</th>
@@ -98,7 +98,15 @@ export default function HistoryPage() {
 function formatKST(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString("ko-KR", { hour12: false });
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = date.getHours();
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  const ampm = hour < 12 ? "am" : "pm";
+  const hour12 = hour % 12 || 12;
+  return `${year}.${month}.${day} ${hour12}:${minute} ${ampm}`;
 }
 
 function toSearchTypeLabel(searchType: "jibun" | "road"): string {

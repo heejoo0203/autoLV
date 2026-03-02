@@ -362,7 +362,7 @@ function SearchPageClient() {
         </div>
 
         {searchTab === "지번" ? (
-          <div className="inline-form">
+          <div className="inline-form inline-form-center">
             <span className="inline-label">지번 입력</span>
             <select className="mini-select" value={sanType} onChange={(e) => setSanType(e.target.value as (typeof SAN_OPTIONS)[number])}>
               {SAN_OPTIONS.map((item) => (

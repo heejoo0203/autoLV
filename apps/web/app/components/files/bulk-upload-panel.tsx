@@ -131,6 +131,7 @@ export function BulkUploadPanel(props: Props) {
             value={props.addressMode}
             onChange={(e) => props.onAddressModeChange(e.target.value as BulkAddressMode)}
           >
+            <option value="auto">자동</option>
             <option value="jibun">지번</option>
             <option value="road">도로명</option>
           </select>

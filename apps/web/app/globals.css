@@ -420,6 +420,10 @@ body::before {
   background: linear-gradient(180deg, #fefefe 0%, #f6f8fc 100%);
 }
 
+.inline-form-center {
+  justify-content: center;
+}
+
 .inline-label {
   min-width: 74px;
   font-weight: 700;
@@ -539,6 +543,10 @@ body::before {
 .bulk-center-table td {
   text-align: center;
   vertical-align: middle;
+}
+
+.history-table th {
+  text-align: center;
 }
 
 .file-grid {

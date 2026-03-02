@@ -33,6 +33,27 @@ export type SearchHistoryRecord = {
   결과: LandResultRow[];
 };
 
+export type SearchHistoryLog = {
+  id: string;
+  search_type: "jibun" | "road";
+  pnu: string;
+  address_summary: string;
+  result_count: number;
+  created_at: string;
+};
+
+export type SearchHistoryLogDetail = SearchHistoryLog & {
+  rows: LandResultRow[];
+};
+
+export type SearchHistoryLogListResponse = {
+  page: number;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
+  items: SearchHistoryLog[];
+};
+
 export type BulkAddressMode = "auto" | "jibun" | "road";
 
 export type BulkJobStatus = "queued" | "processing" | "completed" | "failed";

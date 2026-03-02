@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
 import { ROAD_INITIALS } from "@/app/lib/address";
-import { addSearchHistory, loadSearchHistory } from "@/app/lib/history-storage";
+import { createSearchHistoryLog, fetchSearchHistoryDetail } from "@/app/lib/history-api";
 import type { LdMap, LandResultRow, SearchTab } from "@/app/lib/types";
 
 const SAN_OPTIONS = ["일반", "산"] as const;
@@ -66,13 +66,27 @@ function SearchPageClient() {
 
   useEffect(() => {
     const recordId = params.get("recordId");
-    if (!recordId) return;
-    const ownerKey = user?.user_id ?? user?.email ?? "";
-    const rec = loadSearchHistory().find((x) => x.id === recordId && x.ownerKey === ownerKey);
-    if (!rec) return;
-    setRows(rec.결과);
-    setMessage(`이력에서 선택한 주소 결과입니다: ${toDisplayAddress(rec.주소요약, rec.결과)}`);
-  }, [params, user]);
+    if (!recordId || !isLoggedIn) return;
+
+    let ignore = false;
+    const loadRecord = async () => {
+      try {
+        const rec = await fetchSearchHistoryDetail(recordId);
+        if (ignore) return;
+        setRows(rec.rows ?? []);
+        setMessage(`이력에서 선택한 주소 결과입니다: ${toDisplayAddress(rec.address_summary, rec.rows ?? [])}`);
+      } catch (error) {
+        if (ignore) return;
+        const text = error instanceof Error ? error.message : "조회기록을 불러오지 못했습니다.";
+        setMessage(text);
+      }
+    };
+
+    void loadRecord();
+    return () => {
+      ignore = true;
+    };
+  }, [params, isLoggedIn]);
 
   const loadCodes = async () => {
     try {
@@ -220,11 +234,13 @@ function SearchPageClient() {
       setMessage(`검색 완료: ${summary} (총 ${nextRows.length}건)`);
 
       if (isLoggedIn) {
-        addSearchHistory({
-          ownerKey: user?.user_id ?? user?.email ?? "unknown",
-          type: searchTab,
-          summary,
-          results: nextRows,
+        void createSearchHistoryLog({
+          search_type: okPayload.search_type,
+          pnu: okPayload.pnu,
+          address_summary: summary,
+          rows: nextRows,
+        }).catch(() => {
+          // 조회 자체는 성공했으므로 히스토리 저장 실패는 사용자 흐름을 막지 않는다.
         });
       }
     } catch (error) {

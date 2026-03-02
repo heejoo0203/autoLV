@@ -10,6 +10,7 @@ from sqlalchemy import inspect, text
 from app.api.auth import router as auth_router
 from app.api.bulk import router as bulk_router
 from app.api.health import router as health_router
+from app.api.history import router as history_router
 from app.api.land import router as land_router
 from app.core.config import settings
 from app.db.session import engine
@@ -88,6 +89,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(land_router)
 app.include_router(bulk_router)
+app.include_router(history_router)
 app.mount(
     "/media/profile",
     StaticFiles(directory=str(Path(settings.profile_image_dir).resolve())),

@@ -46,10 +46,24 @@ def _needs_bootstrap_stamp(database_url: str) -> bool:
     finally:
         engine.dispose()
 
-    has_legacy_schema = "users" in tables or "bulk_jobs" in tables
+    has_legacy_schema = "users" in tables or "bulk_jobs" in tables or "query_logs" in tables
     if not has_legacy_schema:
         return False
     return not has_data_revision
+
+
+def _detect_bootstrap_revision(database_url: str) -> str:
+    engine = create_engine(database_url, future=True)
+    try:
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+            tables = set(inspector.get_table_names())
+    finally:
+        engine.dispose()
+
+    if "query_logs" in tables:
+        return "20260302_0002"
+    return INITIAL_REVISION
 
 
 def _seed_default_admin() -> None:
@@ -79,7 +93,7 @@ def main() -> int:
 
     # 기존 DB(create_all 기반)에서 Alembic 도입 시 초기 리비전으로 stamp 처리한다.
     if _needs_bootstrap_stamp(db_url):
-        command.stamp(cfg, INITIAL_REVISION)
+        command.stamp(cfg, _detect_bootstrap_revision(db_url))
 
     command.upgrade(cfg, "head")
     _seed_default_admin()

@@ -1,27 +1,47 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
-import { loadSearchHistory } from "@/app/lib/history-storage";
-import type { SearchHistoryRecord } from "@/app/lib/types";
+import { fetchSearchHistoryLogs } from "@/app/lib/history-api";
+import type { SearchHistoryLog } from "@/app/lib/types";
 
 export default function HistoryPage() {
   const router = useRouter();
   const { user, openAuth } = useAuth();
   const isLoggedIn = Boolean(user);
-  const ownerKey = user?.user_id ?? user?.email ?? "";
+  const [records, setRecords] = useState<SearchHistoryLog[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const records = useMemo(
-    () =>
-      loadSearchHistory()
-        .filter((item) => item.ownerKey === ownerKey)
-        .sort((a, b) => {
-          return new Date(b.시각).getTime() - new Date(a.시각).getTime();
-        }),
-    [ownerKey]
-  );
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setRecords([]);
+      setMessage("");
+      return;
+    }
+    let ignore = false;
+    const run = async () => {
+      setLoading(true);
+      try {
+        const payload = await fetchSearchHistoryLogs(1, 100);
+        if (ignore) return;
+        setRecords(payload.items);
+        setMessage("");
+      } catch (error) {
+        if (ignore) return;
+        setRecords([]);
+        setMessage(error instanceof Error ? error.message : "조회기록을 불러오지 못했습니다.");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      ignore = true;
+    };
+  }, [isLoggedIn]);
 
   if (!isLoggedIn) {
     return (
@@ -38,6 +58,8 @@ export default function HistoryPage() {
   return (
     <section className="panel">
       <h2>조회기록</h2>
+      {loading ? <p className="hint">불러오는 중...</p> : null}
+      {!loading && message ? <p className="hint">{message}</p> : null}
       {records.length === 0 ? (
         <p className="hint">아직 저장된 개별조회 기록이 없습니다.</p>
       ) : (
@@ -59,10 +81,10 @@ export default function HistoryPage() {
                 style={{ cursor: "pointer" }}
               >
                 <td>{idx + 1}</td>
-                <td>{formatKST(row.시각)}</td>
-                <td>{row.유형}</td>
-                <td>{displayAddress(row)}</td>
-                <td>{row.결과.length}</td>
+                <td>{formatKST(row.created_at)}</td>
+                <td>{toSearchTypeLabel(row.search_type)}</td>
+                <td>{row.address_summary}</td>
+                <td>{row.result_count}</td>
               </tr>
             ))}
           </tbody>
@@ -79,13 +101,6 @@ function formatKST(iso: string) {
   return date.toLocaleString("ko-KR", { hour12: false });
 }
 
-function displayAddress(row: SearchHistoryRecord) {
-  if (row.결과.length > 0) {
-    const first = row.결과[0];
-    const location = (first.토지소재지 ?? "").trim();
-    const jibun = (first.지번 ?? "").trim();
-    if (location && jibun) return `${location} ${jibun}`;
-    if (location) return location;
-  }
-  return row.주소요약;
+function toSearchTypeLabel(searchType: "jibun" | "road"): string {
+  return searchType === "jibun" ? "지번" : "도로명";
 }

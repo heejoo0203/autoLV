@@ -16,6 +16,7 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.repositories.bulk_job_repository import delete_bulk_jobs_by_user, list_all_bulk_jobs_by_user
+from app.repositories.query_log_repository import delete_query_logs_by_user
 from app.repositories.user_repository import create_user, delete_user_by_id, get_user_by_email, get_user_by_id, save_user
 from app.schemas.auth import LoginRequest, PasswordChangeRequest, RegisterRequest, UserOut, validate_nickname, validate_password_policy
 
@@ -193,6 +194,7 @@ def delete_account(db: Session, *, user: User, confirmation_text: str) -> None:
 
     if user_jobs:
         delete_bulk_jobs_by_user(db, user_id=user.id)
+    delete_query_logs_by_user(db, user_id=user.id)
     delete_user_by_id(db, user_id=user.id)
 
     for path in cleanup_paths:

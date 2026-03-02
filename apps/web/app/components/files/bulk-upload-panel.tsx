@@ -123,7 +123,7 @@ export function BulkUploadPanel(props: Props) {
 
         <div className="bulk-actions">
           <label className="field-label" htmlFor="address-mode">
-            주소 해석 모드
+            지번/도로명
           </label>
           <select
             id="address-mode"
@@ -131,12 +131,11 @@ export function BulkUploadPanel(props: Props) {
             value={props.addressMode}
             onChange={(e) => props.onAddressModeChange(e.target.value as BulkAddressMode)}
           >
-            <option value="auto">자동 판별</option>
-            <option value="jibun">지번 우선</option>
-            <option value="road">도로명 우선</option>
+            <option value="jibun">지번</option>
+            <option value="road">도로명</option>
           </select>
           <button type="button" className="btn-primary full" disabled={props.uploading} onClick={props.onUpload}>
-            {props.uploading ? "업로드 중..." : "업로드 및 비동기 처리"}
+            {props.uploading ? "조회 중..." : "조회"}
           </button>
         </div>
       </div>

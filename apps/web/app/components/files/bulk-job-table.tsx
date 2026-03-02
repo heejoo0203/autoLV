@@ -43,14 +43,14 @@ export function BulkJobTable(props: Props) {
         <div className="empty-box">아직 파일 작업 이력이 없습니다.</div>
       ) : (
         <>
-          <table className="data-table">
+          <table className="data-table bulk-center-table">
             <thead>
               <tr>
                 <th>파일명</th>
                 <th>상태</th>
                 <th>행 수</th>
                 <th>진행률</th>
-                <th>일시</th>
+                <th>조회시작 일시</th>
                 <th>다운로드</th>
                 <th className="checkbox-col">
                   <input
@@ -143,5 +143,17 @@ function toStatusLabel(status: BulkJob["status"]): string {
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("ko-KR", { hour12: false });
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"] as const;
+  const weekday = weekdays[date.getDay()];
+
+  const hour = date.getHours();
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  const ampm = hour < 12 ? "am" : "pm";
+  const hour12 = hour % 12 || 12;
+
+  return `${year}.${month}.${day}(${weekday}) ${hour12}:${minute} ${ampm}`;
 }

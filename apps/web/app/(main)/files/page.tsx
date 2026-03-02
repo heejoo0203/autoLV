@@ -25,7 +25,7 @@ export default function FilesPage() {
 
   const [guide, setGuide] = useState<BulkGuide | null>(null);
   const [jobs, setJobs] = useState<BulkJob[]>([]);
-  const [addressMode, setAddressMode] = useState<BulkAddressMode>("auto");
+  const [addressMode, setAddressMode] = useState<BulkAddressMode>("jibun");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
 

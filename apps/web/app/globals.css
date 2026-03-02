@@ -535,6 +535,12 @@ body::before {
   border-bottom: none;
 }
 
+.bulk-center-table th,
+.bulk-center-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
 .file-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;

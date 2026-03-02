@@ -1,6 +1,6 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import type { FormEvent, MouseEvent } from "react";
 import { useState } from "react";
 
 import { useAuth } from "@/app/components/auth-provider";
@@ -31,6 +31,30 @@ export function AuthModal() {
     setBackdropPressed(false);
   };
 
+  const onLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      await login(loginEmail, loginPassword);
+    } catch (e) {
+      setAuthMessage(e instanceof Error ? e.message : "로그인 실패");
+    }
+  };
+
+  const onRegisterSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      await register({
+        full_name: registerName,
+        email: registerEmail,
+        password: registerPassword,
+        confirm_password: registerPasswordConfirm,
+        agreements: registerAgreements,
+      });
+    } catch (e) {
+      setAuthMessage(e instanceof Error ? e.message : "회원가입 실패");
+    }
+  };
+
   return (
     <div className="auth-overlay" onMouseDown={onOverlayMouseDown} onMouseUp={onOverlayMouseUp}>
       <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
@@ -49,7 +73,7 @@ export function AuthModal() {
         </div>
 
         {authMode === "login" ? (
-          <div className="auth-form-grid">
+          <form className="auth-form-grid" onSubmit={(e) => void onLoginSubmit(e)}>
             <input placeholder="이메일" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
             <input
               placeholder="비밀번호"
@@ -57,30 +81,20 @@ export function AuthModal() {
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
             />
-            <button
-              className="btn-primary"
-              disabled={authLoading}
-              onClick={async () => {
-                try {
-                  await login(loginEmail, loginPassword);
-                } catch (e) {
-                  setAuthMessage(e instanceof Error ? e.message : "로그인 실패");
-                }
-              }}
-            >
+            <button type="submit" className="btn-primary" disabled={authLoading}>
               {authLoading ? "처리 중..." : "로그인"}
             </button>
             <div className="auth-help-row">
-              <button className="btn-link" onClick={() => setAuthMessage("아이디 찾기 기능은 준비 중입니다.")}>
+              <button type="button" className="btn-link" onClick={() => setAuthMessage("아이디 찾기 기능은 준비 중입니다.")}>
                 아이디 찾기
               </button>
-              <button className="btn-link" onClick={() => setAuthMessage("비밀번호 찾기 기능은 준비 중입니다.")}>
+              <button type="button" className="btn-link" onClick={() => setAuthMessage("비밀번호 찾기 기능은 준비 중입니다.")}>
                 비밀번호 찾기
               </button>
             </div>
-          </div>
+          </form>
         ) : (
-          <div className="auth-form-grid">
+          <form className="auth-form-grid" onSubmit={(e) => void onRegisterSubmit(e)}>
             <input
               placeholder="닉네임 (2~20자, 한글/영문/숫자)"
               value={registerName}
@@ -111,26 +125,10 @@ export function AuthModal() {
               />
               [필수] 서비스 이용약관 및 개인정보 처리방침 동의
             </label>
-            <button
-              className="btn-primary"
-              disabled={authLoading}
-              onClick={async () => {
-                try {
-                  await register({
-                    full_name: registerName,
-                    email: registerEmail,
-                    password: registerPassword,
-                    confirm_password: registerPasswordConfirm,
-                    agreements: registerAgreements,
-                  });
-                } catch (e) {
-                  setAuthMessage(e instanceof Error ? e.message : "회원가입 실패");
-                }
-              }}
-            >
+            <button type="submit" className="btn-primary" disabled={authLoading}>
               {authLoading ? "처리 중..." : "회원가입"}
             </button>
-          </div>
+          </form>
         )}
 
         <p className="auth-message">{authMessage}</p>

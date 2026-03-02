@@ -54,7 +54,7 @@ export type SearchHistoryLogListResponse = {
   items: SearchHistoryLog[];
 };
 
-export type BulkAddressMode = "auto" | "jibun" | "road";
+export type BulkAddressMode = "jibun" | "road";
 
 export type BulkJobStatus = "queued" | "processing" | "completed" | "failed";
 

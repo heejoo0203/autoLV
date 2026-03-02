@@ -775,6 +775,10 @@ body::before {
   gap: 11px;
 }
 
+.password-field {
+  position: relative;
+}
+
 .auth-input,
 .auth-form-grid input {
   border: 1px solid var(--line-strong);
@@ -784,11 +788,35 @@ body::before {
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
+.password-field input {
+  width: 100%;
+  padding-right: 58px;
+}
+
 .auth-input:focus,
 .auth-form-grid input:focus {
   outline: none;
   border-color: #8fb2e8;
   box-shadow: 0 0 0 3px rgba(47, 110, 199, 0.16);
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  border: 1px solid #d3dceb;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #2f5da5;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  background: #eef4ff;
 }
 
 .profile-modal {

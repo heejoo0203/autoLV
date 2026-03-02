@@ -14,6 +14,9 @@ export function AuthModal() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showRegisterPasswordConfirm, setShowRegisterPasswordConfirm] = useState(false);
   const [registerAgreements, setRegisterAgreements] = useState(false);
   const [backdropPressed, setBackdropPressed] = useState(false);
 
@@ -75,12 +78,21 @@ export function AuthModal() {
         {authMode === "login" ? (
           <form className="auth-form-grid" onSubmit={(e) => void onLoginSubmit(e)}>
             <input placeholder="이메일" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
-            <input
-              placeholder="비밀번호"
-              type="password"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-            />
+            <div className="password-field">
+              <input
+                placeholder="비밀번호"
+                type={showLoginPassword ? "text" : "password"}
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowLoginPassword((prev) => !prev)}
+              >
+                {showLoginPassword ? "숨김" : "보기"}
+              </button>
+            </div>
             <button type="submit" className="btn-primary" disabled={authLoading}>
               {authLoading ? "처리 중..." : "로그인"}
             </button>
@@ -105,18 +117,36 @@ export function AuthModal() {
               value={registerEmail}
               onChange={(e) => setRegisterEmail(e.target.value)}
             />
-            <input
-              placeholder="비밀번호 (8~16자, 영문/숫자/특수문자)"
-              type="password"
-              value={registerPassword}
-              onChange={(e) => setRegisterPassword(e.target.value)}
-            />
-            <input
-              placeholder="비밀번호 확인"
-              type="password"
-              value={registerPasswordConfirm}
-              onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
-            />
+            <div className="password-field">
+              <input
+                placeholder="비밀번호 (8~16자, 영문/숫자/특수문자)"
+                type={showRegisterPassword ? "text" : "password"}
+                value={registerPassword}
+                onChange={(e) => setRegisterPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowRegisterPassword((prev) => !prev)}
+              >
+                {showRegisterPassword ? "숨김" : "보기"}
+              </button>
+            </div>
+            <div className="password-field">
+              <input
+                placeholder="비밀번호 확인"
+                type={showRegisterPasswordConfirm ? "text" : "password"}
+                value={registerPasswordConfirm}
+                onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowRegisterPasswordConfirm((prev) => !prev)}
+              >
+                {showRegisterPasswordConfirm ? "숨김" : "보기"}
+              </button>
+            </div>
             <label className="agree-label">
               <input
                 type="checkbox"

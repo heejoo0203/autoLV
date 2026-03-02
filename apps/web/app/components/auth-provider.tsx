@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { AuthMode, AuthUser } from "@/app/lib/types";
 
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
+let preferredApiBase: string | null = null;
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -34,7 +35,7 @@ type AuthContextValue = {
   deleteAccount: (confirmationText: string) => Promise<void>;
   expectedWithdrawalText: string;
   setAuthMessage: (message: string) => void;
-  refreshMe: () => Promise<void>;
+  refreshMe: () => Promise<AuthUser | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -47,17 +48,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authMessage, setAuthMessage] = useState("로그인 후 파일 조회 기능을 사용할 수 있습니다.");
 
-  async function refreshMe() {
+  async function refreshMe(): Promise<AuthUser | null> {
     try {
       const res = await authFetch("/api/v1/auth/me", { method: "GET" });
       if (!res.ok) {
         setUser(null);
+        return null;
       } else {
         const data = (await res.json()) as AuthUser;
-        setUser(normalizeUser(data));
+        const normalized = normalizeUser(data);
+        setUser(normalized);
+        return normalized;
       }
     } catch {
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -119,16 +124,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setAuthLoading(true);
     let remoteSuccess = false;
+    let stillLoggedIn = false;
     try {
-      const res = await authFetch("/api/v1/auth/logout", { method: "POST" });
-      remoteSuccess = res.ok;
+      for (const base of resolveApiBases()) {
+        try {
+          const res = await fetch(`${base}/api/v1/auth/logout`, {
+            method: "POST",
+            credentials: "include",
+          });
+          if (res.ok) {
+            remoteSuccess = true;
+            preferredApiBase = base;
+          }
+        } catch {
+          // Ignore and try the next base.
+        }
+      }
+      const me = await refreshMe();
+      stillLoggedIn = Boolean(me);
     } catch {
       remoteSuccess = false;
     } finally {
-      setUser(null);
+      if (!stillLoggedIn) {
+        setUser(null);
+      }
       setAuthMode("login");
       setAuthOpen(false);
-      setAuthMessage(remoteSuccess ? "로그아웃되었습니다." : "서버 연결 문제로 로컬 로그아웃 처리되었습니다.");
+      if (stillLoggedIn) {
+        setAuthMessage("로그아웃에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      } else {
+        setAuthMessage(remoteSuccess ? "로그아웃되었습니다." : "서버 연결 문제로 로컬 로그아웃 처리되었습니다.");
+      }
       setAuthLoading(false);
     }
   };
@@ -269,6 +295,10 @@ function resolveApiBases(): string[] {
   const envBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   const bases: string[] = [];
 
+  if (preferredApiBase) {
+    bases.push(normalizeBase(preferredApiBase));
+  }
+
   if (envBase) bases.push(normalizeBase(envBase));
 
   if (typeof window !== "undefined") {
@@ -288,10 +318,12 @@ async function authFetch(path: string, init: RequestInit): Promise<Response> {
 
   for (const base of bases) {
     try {
-      return await fetch(`${base}${path}`, {
+      const response = await fetch(`${base}${path}`, {
         ...init,
         credentials: "include",
       });
+      preferredApiBase = base;
+      return response;
     } catch (error) {
       lastError = error;
     }

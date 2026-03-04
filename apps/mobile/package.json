@@ -1,0 +1,26 @@
+{
+  "name": "autolv-mobile",
+  "version": "2.1.1",
+  "private": true,
+  "description": "autoLV Android wrapper app (Capacitor)",
+  "main": "index.js",
+  "scripts": {
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npx cap sync android",
+    "cap:copy": "npx cap copy android",
+    "assets:generate": "npx @capacitor/assets generate",
+    "android:open": "npx cap open android",
+    "android:build:debug": "cd android && gradlew assembleDebug",
+    "android:build:release": "cd android && gradlew assembleRelease",
+    "doctor": "npx cap doctor"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^7.5.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.5.0",
+    "@capacitor/core": "^7.5.0"
+  }
+}

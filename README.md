@@ -119,6 +119,17 @@ npm run dev:clean
 - Web: `http://localhost:3000`
 - API: `http://127.0.0.1:8000`
 
+## Android APK (Capacitor)
+```bash
+cd apps/mobile
+npm install
+npx cap sync android
+npm run android:build:debug
+```
+
+상세 가이드:
+- `apps/mobile/README.md`
+
 ## 관리자 시드
 ```bash
 cd apps/api

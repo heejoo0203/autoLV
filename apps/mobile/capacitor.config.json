@@ -1,0 +1,13 @@
+{
+  "appId": "com.autolv.app",
+  "appName": "autoLV",
+  "webDir": "www",
+  "server": {
+    "url": "https://auto-lv.vercel.app",
+    "cleartext": false,
+    "allowNavigation": [
+      "auto-lv.vercel.app",
+      "*.railway.app"
+    ]
+  }
+}

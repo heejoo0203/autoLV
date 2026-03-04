@@ -39,3 +39,13 @@ AI_GUIDELINE.md
 apps/api/storage/
 docs/samples/*_result.xlsx
 docs/samples/~$*
+
+# Mobile (Capacitor/Android)
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/android/app/build/
+apps/mobile/android/build/
+apps/mobile/android/.idea/
+apps/mobile/android/app/*.jks
+apps/mobile/android/app/*.keystore
+apps/mobile/android/app/signing.properties

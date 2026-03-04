@@ -9,7 +9,7 @@
       "showSpinner": false,
       "backgroundColor": "#F8FAFD",
       "androidSplashResourceName": "launch_splash",
-      "androidScaleType": "CENTER"
+      "androidScaleType": "CENTER_CROP"
     }
   },
   "server": {

@@ -35,7 +35,7 @@ export type SearchHistoryRecord = {
 
 export type SearchHistoryLog = {
   id: string;
-  search_type: "jibun" | "road";
+  search_type: "jibun" | "road" | "map";
   pnu: string;
   address_summary: string;
   result_count: number;
@@ -108,6 +108,8 @@ export type MapLookupResponse = {
   lng: number;
   pnu: string;
   address_summary: string;
+  jibun_address: string;
+  road_address: string;
   area: number | null;
   price_current: number | null;
   price_previous: number | null;
@@ -117,4 +119,18 @@ export type MapLookupResponse = {
   nearby_radius_m: number;
   cache_hit: boolean;
   rows: LandResultRow[];
+};
+
+export type MapPriceRowsResponse = {
+  pnu: string;
+  rows: LandResultRow[];
+};
+
+export type MapLandDetailsResponse = {
+  pnu: string;
+  stdr_year: string | null;
+  area: number | null;
+  land_category_name: string | null;
+  purpose_area_name: string | null;
+  purpose_district_name: string | null;
 };

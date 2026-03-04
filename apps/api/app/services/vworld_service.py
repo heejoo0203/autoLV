@@ -162,16 +162,26 @@ def resolve_pnu_from_road(payload: LandLookupRequest) -> dict[str, str]:
 def parse_level5_jibun(level5: str) -> dict[str, Any]:
     text = level5.strip()
     is_san = text.startswith("산")
-    text = text.replace("산", "", 1).strip()
+    if is_san:
+        text = text[1:].strip()
+
+    # 예: "17번지", "17-1번지", "17-1", "17" 모두 허용
+    text = text.replace("번지", "").replace("번", "").replace(" ", "")
     if not text:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_LEVEL5_JIBUN", "message": "지번 값이 비어 있습니다."},
         )
-    if "-" in text:
-        main_text, sub_text = text.split("-", 1)
-    else:
-        main_text, sub_text = text, "0"
+
+    match = re.search(r"(\d+)(?:-(\d+))?", text)
+    if not match:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_LEVEL5_JIBUN", "message": f"지번 형식을 해석하지 못했습니다: {level5}"},
+        )
+
+    main_text = match.group(1)
+    sub_text = match.group(2) or "0"
     main = parse_positive_int(main_text, "level5.main")
     sub = parse_non_negative_int(sub_text, "level5.sub")
     return {"is_san": is_san, "main_no": main, "sub_no": sub}

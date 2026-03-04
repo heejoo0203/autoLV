@@ -9,7 +9,7 @@ from app.schemas.land import LandResultRow
 
 
 class QueryLogCreateRequest(BaseModel):
-    search_type: Literal["jibun", "road"]
+    search_type: Literal["jibun", "road", "map"]
     pnu: str = Field(min_length=19, max_length=19)
     address_summary: str = Field(default="")
     rows: list[LandResultRow] = Field(default_factory=list)
@@ -17,7 +17,7 @@ class QueryLogCreateRequest(BaseModel):
 
 class QueryLogItemResponse(BaseModel):
     id: str
-    search_type: Literal["jibun", "road"]
+    search_type: Literal["jibun", "road", "map"]
     pnu: str
     address_summary: str
     result_count: int

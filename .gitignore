@@ -31,6 +31,10 @@ dist/
 # Local AI notes
 AI_GUIDELINE.md
 
+# Portfolio export files
+포트폴리오 정리.md
+포트폴리오 정리.docx
+
 # Bulk runtime artifacts
 apps/api/storage/
 docs/samples/*_result.xlsx

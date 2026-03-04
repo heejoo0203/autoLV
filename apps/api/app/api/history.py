@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -11,8 +13,10 @@ from app.models.user import User
 from app.repositories.query_log_repository import (
     count_query_logs_by_user,
     create_query_log,
+    get_latest_query_log_by_user,
     get_query_log_by_id,
     list_query_logs_by_user,
+    update_query_log_content,
 )
 from app.schemas.history import (
     QueryLogCreateRequest,
@@ -24,6 +28,7 @@ from app.schemas.land import LandResultRow
 from app.services.auth_service import get_user_from_access_token
 
 router = APIRouter(prefix="/api/v1/history", tags=["history"])
+RECENT_QUERY_MERGE_WINDOW_SECONDS = 180
 
 
 def _get_current_user(
@@ -40,30 +45,85 @@ def create_history_log(
     current_user: User = Depends(_get_current_user),
 ) -> QueryLogItemResponse:
     rows_json = json.dumps([row.model_dump() for row in payload.rows], ensure_ascii=False)
-    result = create_query_log(
-        db,
-        user_id=current_user.id,
-        search_type=payload.search_type,
-        pnu=payload.pnu,
-        address_summary=payload.address_summary.strip(),
-        rows_json=rows_json,
-        result_count=len(payload.rows),
-    )
+    incoming_summary = payload.address_summary.strip()
+    incoming_count = len(payload.rows)
+
+    latest = get_latest_query_log_by_user(db, user_id=current_user.id)
+    result = None
+    if latest and _is_merge_target(latest=latest, payload=payload):
+        should_refresh = incoming_count > latest.result_count or (
+            incoming_summary and incoming_summary != latest.address_summary
+        )
+        if should_refresh:
+            result = update_query_log_content(
+                db,
+                log=latest,
+                address_summary=incoming_summary or latest.address_summary,
+                rows_json=rows_json,
+                result_count=incoming_count,
+            )
+        else:
+            result = latest
+    else:
+        result = create_query_log(
+            db,
+            user_id=current_user.id,
+            search_type=payload.search_type,
+            pnu=payload.pnu,
+            address_summary=incoming_summary,
+            rows_json=rows_json,
+            result_count=incoming_count,
+        )
     return _to_item_response(result)
+
+
+def _is_merge_target(*, latest: QueryLog, payload: QueryLogCreateRequest) -> bool:
+    if latest.search_type != payload.search_type:
+        return False
+    if latest.pnu != payload.pnu:
+        return False
+    created_at = latest.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    return (now - created_at) <= timedelta(seconds=RECENT_QUERY_MERGE_WINDOW_SECONDS)
 
 
 @router.get("/query-logs", response_model=QueryLogListResponse)
 def list_history_logs(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    search_type: Literal["jibun", "road", "map"] | None = Query(default=None),
+    sido: str | None = Query(default=None, description="시/도 키워드"),
+    sigungu: str | None = Query(default=None, description="시/군/구 키워드"),
+    sort_by: Literal["created_at", "address_summary", "search_type", "result_count"] = Query(
+        default="created_at"
+    ),
+    sort_order: Literal["asc", "desc"] = Query(default="desc"),
     db: Session = Depends(get_db),
     current_user: User = Depends(_get_current_user),
 ) -> QueryLogListResponse:
-    total_count = count_query_logs_by_user(db, user_id=current_user.id)
+    total_count = count_query_logs_by_user(
+        db,
+        user_id=current_user.id,
+        search_type=search_type,
+        sido=(sido or "").strip() or None,
+        sigungu=(sigungu or "").strip() or None,
+    )
     total_pages = max(1, (total_count + page_size - 1) // page_size)
     current_page = min(page, total_pages)
     offset = (current_page - 1) * page_size
-    items = list_query_logs_by_user(db, user_id=current_user.id, limit=page_size, offset=offset)
+    items = list_query_logs_by_user(
+        db,
+        user_id=current_user.id,
+        limit=page_size,
+        offset=offset,
+        search_type=search_type,
+        sido=(sido or "").strip() or None,
+        sigungu=(sigungu or "").strip() or None,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
     return QueryLogListResponse(
         page=current_page,
         page_size=page_size,

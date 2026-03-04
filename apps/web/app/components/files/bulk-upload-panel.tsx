@@ -7,6 +7,7 @@ import type { BulkAddressMode, BulkGuide, BulkJob } from "@/app/lib/types";
 type Props = {
   guide: BulkGuide | null;
   selectedFileName: string;
+  selectedFileSize: number;
   addressMode: BulkAddressMode;
   uploading: boolean;
   message: string;
@@ -138,12 +139,28 @@ export function BulkUploadPanel(props: Props) {
           <button type="button" className="btn-primary full" disabled={props.uploading} onClick={props.onUpload}>
             {props.uploading ? "조회 중..." : "조회"}
           </button>
+          {props.selectedFileName ? (
+            <div className="hint">
+              선택 파일: {props.selectedFileName} ({formatFileSize(props.selectedFileSize)})
+              {" "}
+              <button type="button" className="btn-link" onClick={() => props.onSelectFile(null)}>
+                선택 해제
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <p className="hint">{props.message}</p>
     </section>
   );
+}
+
+function formatFileSize(bytes: number): string {
+  if (!bytes) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function toStatusLabel(status: BulkJob["status"]): string {

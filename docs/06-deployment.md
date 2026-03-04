@@ -137,3 +137,62 @@ Railway 환경에서 VWorld 직접 호출이 `502` 또는 연결 종료(`RemoteD
 1. API/Web를 직전 태그로 롤백
 2. 필요 시 DB를 직전 백업으로 복원
 3. `/health`, 인증, 개별조회, 파일조회 시나리오 재검증
+
+## 11. Redis 캐시 성능 비교(포트폴리오 증빙)
+목표:
+- 동일 주소를 연속 조회했을 때 캐시 미스/히트 응답시간 차이를 증빙한다.
+
+사전 조건:
+- Redis 연결이 활성화되어 있어야 한다.
+- 측정 주소(지번/도로명) 1개를 고정한다.
+
+권장 측정 방식:
+1. 캐시 비우기(테스트 키 범위만) 또는 신규 주소 선택
+2. 1차 요청(캐시 미스) 시간 기록
+3. 동일 요청 2차 실행(캐시 히트) 시간 기록
+4. 결과를 스크린샷으로 저장
+
+예시(Bash):
+```bash
+curl -s -o /dev/null -w "first=%{time_total}s\n" \
+  -X POST https://<api-domain>/api/v1/land/single \
+  -H "content-type: application/json" \
+  -d '{"search_type":"jibun","ld_code":"1168011800","san_type":"일반","main_no":"970","sub_no":"0"}'
+
+curl -s -o /dev/null -w "second=%{time_total}s\n" \
+  -X POST https://<api-domain>/api/v1/land/single \
+  -H "content-type: application/json" \
+  -d '{"search_type":"jibun","ld_code":"1168011800","san_type":"일반","main_no":"970","sub_no":"0"}'
+```
+
+README 반영 규칙:
+- `docs/assets/perf-cache-compare.png`로 저장
+- README에 아래 문구와 함께 이미지 첨부
+  - `첫 조회: XXXms`
+  - `두 번째 조회(캐시): YYYms`
+
+## 12. 모니터링 구성 (운영형 포트폴리오)
+권장 최소 구성:
+1. 오류 추적: `Sentry` (API + Web)
+2. API 접근 로그 집계: 에러율/외부 API 실패율/프록시 사용률
+3. 주간 리포트: 숫자 요약 + 주요 장애 원인
+
+핵심 지표 정의:
+- `api_error_rate` = `5xx 응답 수 / 전체 API 요청 수 * 100`
+- `vworld_direct_failure_rate` = `VWorld 직접 호출 실패 수 / VWorld 직접 호출 시도 수 * 100`
+- `vworld_proxy_usage_rate` = `프록시 경유 호출 수 / 전체 VWorld 호출 수 * 100`
+
+운영 체크:
+- 지표가 특정 임계치 초과 시(예: 에러율 2%+) 알림 설정
+- 배포 전/후 24시간 비교값 기록
+
+## 13. 실제 사용 시나리오 문서화 가이드
+문서 위치(권장):
+- `docs/08-portfolio-enhancement.md`
+
+필수 항목:
+1. 사용자 페르소나(공인중개사/정비분석/투자자)
+2. 문제 상황(왜 이 서비스가 필요한지)
+3. 사용 흐름(단건조회/파일조회)
+4. 산출물(의사결정에 어떤 근거를 주는지)
+5. 기대 효과(시간 절감, 근거 데이터 확보)

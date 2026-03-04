@@ -1,6 +1,6 @@
 "use client";
 
-import type { MapLookupResponse } from "@/app/lib/types";
+import type { MapLandDetailsResponse, MapLookupResponse, MapPriceRowsResponse } from "@/app/lib/types";
 
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
@@ -15,6 +15,49 @@ export async function fetchMapLookup(lat: number, lng: number): Promise<MapLooku
     throw new Error(extractError(payload, "지도 조회에 실패했습니다."));
   }
   return payload as MapLookupResponse;
+}
+
+export async function searchMapLookupByAddress(address: string): Promise<MapLookupResponse> {
+  const res = await apiFetch("/api/v1/map/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address }),
+  });
+  const payload = (await safeJson(res)) as MapLookupResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "주소 기반 지도 조회에 실패했습니다."));
+  }
+  return payload as MapLookupResponse;
+}
+
+export async function fetchMapLookupByPnu(pnu: string): Promise<MapLookupResponse> {
+  const query = new URLSearchParams({ pnu });
+  const res = await apiFetch(`/api/v1/map/by-pnu?${query.toString()}`, { method: "GET" });
+  const payload = (await safeJson(res)) as MapLookupResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "PNU 기반 지도 조회에 실패했습니다."));
+  }
+  return payload as MapLookupResponse;
+}
+
+export async function fetchMapPriceRows(pnu: string): Promise<MapPriceRowsResponse> {
+  const query = new URLSearchParams({ pnu });
+  const res = await apiFetch(`/api/v1/map/price-rows?${query.toString()}`, { method: "GET" });
+  const payload = (await safeJson(res)) as MapPriceRowsResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "연도별 공시지가 조회에 실패했습니다."));
+  }
+  return payload as MapPriceRowsResponse;
+}
+
+export async function fetchMapLandDetails(pnu: string): Promise<MapLandDetailsResponse> {
+  const query = new URLSearchParams({ pnu });
+  const res = await apiFetch(`/api/v1/map/land-details?${query.toString()}`, { method: "GET" });
+  const payload = (await safeJson(res)) as MapLandDetailsResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "토지 상세 정보 조회에 실패했습니다."));
+  }
+  return payload as MapLandDetailsResponse;
 }
 
 export async function downloadMapLookupCsv(pnu: string): Promise<void> {

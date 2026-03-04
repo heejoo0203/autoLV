@@ -15,8 +15,19 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.schemas.land import LandResultRow
-from app.schemas.map import MapClickRequest, MapLookupResponse
-from app.services.vworld_service import call_vworld_json, compose_pnu, fetch_individual_land_price_rows, parse_level5_jibun
+from app.schemas.map import (
+    MapAddressSearchRequest,
+    MapClickRequest,
+    MapLandDetailsResponse,
+    MapLookupResponse,
+    MapPriceRowsResponse,
+)
+from app.services.vworld_service import (
+    call_vworld_json,
+    compose_pnu,
+    fetch_individual_land_price_rows,
+    parse_level5_jibun,
+)
 
 try:
     from redis import Redis
@@ -32,6 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency in local/d
     _REDIS_AVAILABLE = False
 
 _PRICE_DIGITS = re.compile(r"[^0-9]")
+_PNU_PATTERN = re.compile(r"^\d{19}$")
 _REDIS_CLIENT: Redis | None = None
 _REDIS_DISABLED = False
 
@@ -41,7 +53,9 @@ def lookup_map_by_click(db: Session, payload: MapClickRequest) -> MapLookupRespo
 
     pnu_data = _resolve_pnu_with_cache(payload.lat, payload.lng)
     pnu = pnu_data["pnu"]
-    address_summary = pnu_data["address_summary"]
+    jibun_address = pnu_data.get("jibun_address", "").strip()
+    road_address = pnu_data.get("road_address", "").strip()
+    address_summary = (jibun_address or road_address or pnu_data.get("address_summary", "")).strip()
 
     cached = _find_cached_parcel(db, pnu)
     rows: list[LandResultRow] = []
@@ -51,6 +65,19 @@ def lookup_map_by_click(db: Session, payload: MapClickRequest) -> MapLookupRespo
         area = _to_float(cached.get("area"))
         price_current = _to_int(cached.get("price_current"))
         price_previous = _to_int(cached.get("price_previous"))
+        if area is None:
+            details = _fetch_land_characteristics_latest(pnu)
+            area = _extract_area_from_candidate(details)
+            if area is not None:
+                _upsert_parcel_snapshot(
+                    db=db,
+                    pnu=pnu,
+                    lat=payload.lat,
+                    lng=payload.lng,
+                    area=area,
+                    price_current=price_current,
+                    price_previous=price_previous,
+                )
         cache_hit = True
     else:
         rows = fetch_individual_land_price_rows(pnu)
@@ -76,6 +103,8 @@ def lookup_map_by_click(db: Session, payload: MapClickRequest) -> MapLookupRespo
         lng=payload.lng,
         pnu=pnu,
         address_summary=address_summary,
+        jibun_address=jibun_address,
+        road_address=road_address,
         area=area,
         price_current=price_current,
         price_previous=price_previous,
@@ -85,6 +114,86 @@ def lookup_map_by_click(db: Session, payload: MapClickRequest) -> MapLookupRespo
         nearby_radius_m=settings.map_nearby_radius_m,
         cache_hit=cache_hit,
         rows=rows,
+    )
+
+
+def lookup_map_by_address(db: Session, payload: MapAddressSearchRequest) -> MapLookupResponse:
+    address = payload.address.strip()
+    if len(address) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_ADDRESS_QUERY", "message": "주소를 2자 이상 입력해 주세요."},
+        )
+    point = _geocode_address(address)
+    return lookup_map_by_click(db, MapClickRequest(lat=point["lat"], lng=point["lng"]))
+
+
+def lookup_map_by_pnu(db: Session, pnu: str) -> MapLookupResponse:
+    pnu = pnu.strip()
+    if not _PNU_PATTERN.fullmatch(pnu):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_PNU", "message": "PNU 형식이 올바르지 않습니다."},
+        )
+
+    row = db.execute(
+        text(
+            """
+            SELECT lat, lng
+            FROM parcels
+            WHERE pnu = :pnu
+            """
+        ),
+        {"pnu": pnu},
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "PARCEL_NOT_FOUND", "message": "해당 PNU의 좌표 데이터가 없습니다."},
+        )
+
+    lat = _to_float(row.get("lat"))
+    lng = _to_float(row.get("lng"))
+    if lat is None or lng is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "PARCEL_COORDINATE_MISSING", "message": "해당 PNU의 좌표가 비어 있습니다."},
+        )
+
+    return lookup_map_by_click(db, MapClickRequest(lat=lat, lng=lng))
+
+
+def fetch_map_price_rows(pnu: str) -> MapPriceRowsResponse:
+    pnu = pnu.strip()
+    if not _PNU_PATTERN.fullmatch(pnu):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_PNU", "message": "PNU 형식이 올바르지 않습니다."},
+        )
+    rows = fetch_individual_land_price_rows(pnu)
+    return MapPriceRowsResponse(pnu=pnu, rows=rows)
+
+
+def fetch_map_land_details(pnu: str) -> MapLandDetailsResponse:
+    pnu = pnu.strip()
+    if not _PNU_PATTERN.fullmatch(pnu):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_PNU", "message": "PNU 형식이 올바르지 않습니다."},
+        )
+
+    details = _fetch_land_characteristics_latest(pnu) or {}
+    area = _extract_area_from_candidate(details)
+    if area is None:
+        area = _fetch_parcel_area(pnu)
+    return MapLandDetailsResponse(
+        pnu=pnu,
+        stdr_year=_to_text_or_none(details.get("stdrYear")),
+        area=area,
+        land_category_name=_to_text_or_none(details.get("lndcgrCodeNm")),
+        purpose_area_name=_to_text_or_none(details.get("prposAreaNm") or details.get("prposArea1Nm")),
+        purpose_district_name=_to_text_or_none(details.get("prposDstrcNm") or details.get("prposArea2Nm")),
     )
 
 
@@ -143,13 +252,17 @@ def _resolve_pnu_with_cache(lat: float, lng: float) -> dict[str, str]:
                 payload = json.loads(cached)
                 if isinstance(payload, dict):
                     pnu = str(payload.get("pnu", "")).strip()
-                    summary = str(payload.get("address_summary", "")).strip()
                     if pnu:
-                        return {"pnu": pnu, "address_summary": summary}
+                        return {
+                            "pnu": pnu,
+                            "address_summary": str(payload.get("address_summary", "")).strip(),
+                            "jibun_address": str(payload.get("jibun_address", payload.get("address_summary", ""))).strip(),
+                            "road_address": str(payload.get("road_address", "")).strip(),
+                        }
         except (RedisError, json.JSONDecodeError, TypeError, ValueError):
             pass
 
-    resolved = _resolve_pnu_from_vworld(lat, lng)
+    resolved = _resolve_pnu_and_addresses_from_vworld(lat, lng)
     if redis_client is not None:
         try:
             redis_client.setex(cache_key, settings.redis_pnu_ttl_seconds, json.dumps(resolved, ensure_ascii=False))
@@ -158,37 +271,11 @@ def _resolve_pnu_with_cache(lat: float, lng: float) -> dict[str, str]:
     return resolved
 
 
-def _resolve_pnu_from_vworld(lat: float, lng: float) -> dict[str, str]:
-    payload = call_vworld_json(
-        "/req/address",
-        {
-            "service": "address",
-            "request": "getaddress",
-            "version": "2.0",
-            "crs": "epsg:4326",
-            "point": f"{lng},{lat}",
-            "format": "json",
-            "type": "parcel",
-            "simple": "false",
-        },
-    )
+def _resolve_pnu_and_addresses_from_vworld(lat: float, lng: float) -> dict[str, str]:
+    parcel_result = _reverse_geocode_by_type(lat=lat, lng=lng, address_type="parcel")
+    road_result = _reverse_geocode_by_type(lat=lat, lng=lng, address_type="road")
 
-    response = payload.get("response", {})
-    if response.get("status") != "OK":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "MAP_REVERSE_GEOCODE_FAILED", "message": "좌표를 PNU로 변환하지 못했습니다."},
-        )
-
-    results = response.get("result") or []
-    if not isinstance(results, list) or not results:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "MAP_PARCEL_NOT_FOUND", "message": "해당 좌표의 지번 정보를 찾지 못했습니다."},
-        )
-
-    first = results[0]
-    structure = first.get("structure", {}) if isinstance(first, dict) else {}
+    structure = parcel_result.get("structure", {}) if isinstance(parcel_result, dict) else {}
     ld_code = str(structure.get("level4LC", "")).strip()
     level5 = str(structure.get("level5", "")).strip()
     if not ld_code or not level5:
@@ -204,15 +291,138 @@ def _resolve_pnu_from_vworld(lat: float, lng: float) -> dict[str, str]:
         main_no=str(parsed["main_no"]),
         sub_no=str(parsed["sub_no"]),
     )
-    address_summary = str(first.get("text", "")).strip() if isinstance(first, dict) else ""
-    if not address_summary:
-        level1 = str(structure.get("level1", "")).strip()
-        level2 = str(structure.get("level2", "")).strip()
-        level3 = str(structure.get("level3", "")).strip()
-        level4 = str(structure.get("level4", "")).strip()
-        address_summary = " ".join(part for part in [level1, level2, level3, level4, level5] if part)
 
-    return {"pnu": pnu, "address_summary": address_summary}
+    jibun_address = _extract_result_address(parcel_result, fallback_level5=level5)
+    road_address = _extract_result_address(road_result)
+    if not road_address:
+        road_address = _resolve_road_address_via_both(lat=lat, lng=lng)
+    address_summary = jibun_address or road_address
+
+    return {
+        "pnu": pnu,
+        "address_summary": address_summary,
+        "jibun_address": jibun_address,
+        "road_address": road_address,
+    }
+
+
+def _resolve_road_address_via_both(lat: float, lng: float) -> str:
+    payload = call_vworld_json(
+        "/req/address",
+        {
+            "service": "address",
+            "request": "getaddress",
+            "version": "2.0",
+            "crs": "epsg:4326",
+            "point": f"{lng},{lat}",
+            "format": "json",
+            "type": "both",
+            "simple": "false",
+        },
+    )
+    response = payload.get("response", {})
+    if response.get("status") != "OK":
+        return ""
+
+    result = response.get("result") or []
+    if not isinstance(result, list):
+        return ""
+
+    road_candidates: list[str] = []
+    for item in result:
+        if not isinstance(item, dict):
+            continue
+        raw_type = str(item.get("type", "")).strip().lower()
+        text = _extract_result_address(item)
+        if not text:
+            continue
+        if "road" in raw_type:
+            return text
+        road_keys = ("road", "rdnm", "roadname", "road_name")
+        structure = item.get("structure", {})
+        if isinstance(structure, dict):
+            joined_keys = " ".join(str(k).lower() for k in structure.keys())
+            if any(key in joined_keys for key in road_keys):
+                return text
+        road_candidates.append(text)
+
+    # 특정 필지는 도로명주소가 부여되지 않아 빈 값이 정상일 수 있다.
+    return road_candidates[0] if road_candidates else ""
+
+
+def _reverse_geocode_by_type(lat: float, lng: float, address_type: str) -> dict[str, Any]:
+    payload = call_vworld_json(
+        "/req/address",
+        {
+            "service": "address",
+            "request": "getaddress",
+            "version": "2.0",
+            "crs": "epsg:4326",
+            "point": f"{lng},{lat}",
+            "format": "json",
+            "type": address_type,
+            "simple": "false",
+        },
+    )
+    response = payload.get("response", {})
+    if response.get("status") != "OK":
+        return {}
+    result = response.get("result") or []
+    if isinstance(result, list) and result:
+        first = result[0]
+        if isinstance(first, dict):
+            return first
+    return {}
+
+
+def _extract_result_address(result: dict[str, Any], fallback_level5: str = "") -> str:
+    if not isinstance(result, dict):
+        return ""
+    text = str(result.get("text", "")).strip()
+    if text:
+        return text
+    structure = result.get("structure", {})
+    if not isinstance(structure, dict):
+        return ""
+    parts = [
+        str(structure.get("level1", "")).strip(),
+        str(structure.get("level2", "")).strip(),
+        str(structure.get("level3", "")).strip(),
+        str(structure.get("level4", "")).strip(),
+        str(structure.get("level5", fallback_level5)).strip(),
+    ]
+    return " ".join(part for part in parts if part)
+
+
+def _geocode_address(address: str) -> dict[str, float]:
+    for address_type in ("road", "parcel"):
+        payload = call_vworld_json(
+            "/req/address",
+            {
+                "service": "address",
+                "request": "getcoord",
+                "version": "2.0",
+                "crs": "epsg:4326",
+                "address": address,
+                "refine": "true",
+                "simple": "false",
+                "format": "json",
+                "type": address_type,
+            },
+        )
+        response = payload.get("response", {})
+        if response.get("status") != "OK":
+            continue
+        point = response.get("result", {}).get("point", {})
+        lng = _to_float(point.get("x"))
+        lat = _to_float(point.get("y"))
+        if lat is not None and lng is not None:
+            return {"lat": lat, "lng": lng}
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={"code": "MAP_ADDRESS_NOT_FOUND", "message": "입력한 주소를 좌표로 변환하지 못했습니다."},
+    )
 
 
 def _find_cached_parcel(db: Session, pnu: str) -> dict[str, Any] | None:
@@ -358,7 +568,77 @@ def _fetch_parcel_area(pnu: str) -> float | None:
         if area is not None:
             return area
 
-    return _extract_area_from_candidate(payload)
+    area = _extract_area_from_candidate(payload)
+    if area is not None:
+        return area
+
+    details = _fetch_land_characteristics_latest(pnu)
+    return _extract_area_from_candidate(details)
+
+
+def _fetch_land_characteristics_latest(pnu: str) -> dict[str, Any] | None:
+    for api_path in ("/ned/data/getLandCharacteristics", "/ned/data/getLandCharacteristicsAttr"):
+        try:
+            payload = call_vworld_json(
+                api_path,
+                {
+                    "pnu": pnu,
+                    "format": "json",
+                    "numOfRows": "100",
+                    "pageNo": "1",
+                },
+            )
+        except HTTPException:
+            continue
+
+        fields = _extract_land_characteristics_fields(payload)
+        if not fields:
+            continue
+
+        def _sort_key(item: dict[str, Any]) -> tuple[int, str]:
+            year_raw = str(item.get("stdrYear", "")).strip()
+            year = int(year_raw) if year_raw.isdigit() else -1
+            updated = str(item.get("frstRegistDt", "")).strip()
+            return (year, updated)
+
+        return max(fields, key=_sort_key)
+
+    return None
+
+
+def _extract_land_characteristics_fields(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+
+    response = payload.get("response")
+    if isinstance(response, dict):
+        response_code = str(response.get("resultCode", "") or "").strip()
+        if response_code:
+            return []
+
+    root_candidates: list[Any] = [
+        payload.get("landCharacteristics"),
+        payload.get("landCharacteristic"),
+        payload.get("landCharacteristicss"),
+        payload.get("landCharacteristicsAttrs"),
+        payload.get("landCharacteristicsAttr"),
+        payload,
+    ]
+    fields: list[dict[str, Any]] = []
+    for root in root_candidates:
+        if not isinstance(root, dict):
+            continue
+        result_code = str(root.get("resultCode", "") or "").strip()
+        if result_code:
+            continue
+
+        candidates = [root.get("field"), root.get("result"), root.get("items")]
+        for candidate in candidates:
+            if isinstance(candidate, dict):
+                fields.append(candidate)
+            elif isinstance(candidate, list):
+                fields.extend(item for item in candidate if isinstance(item, dict))
+    return fields
 
 
 def _extract_area_from_candidate(value: Any) -> float | None:
@@ -388,7 +668,31 @@ def _extract_area_from_candidate(value: Any) -> float | None:
             if parsed is not None and parsed > 0:
                 return parsed
 
-    for raw in value.values():
+    # 스키마가 다른 응답을 대비해, 키 이름이 면적 계열일 때만 보조 추출한다.
+    fallback_key_hints = ("ar", "area", "면적")
+    exclude_key_hints = (
+        "year",
+        "stdr",
+        "code",
+        "price",
+        "pblntf",
+        "date",
+        "mnnm",
+        "slno",
+        "lat",
+        "lng",
+        "x",
+        "y",
+    )
+    for key, raw in value.items():
+        key_text = str(key).strip().lower()
+        if not key_text:
+            continue
+        if not any(hint in key_text for hint in fallback_key_hints):
+            continue
+        if any(hint in key_text for hint in exclude_key_hints):
+            continue
+
         parsed = _to_float(raw)
         if parsed is not None and 1 <= parsed <= 10_000_000:
             return parsed
@@ -467,6 +771,13 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _to_text_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _format_csv_float(value: float | None) -> str:

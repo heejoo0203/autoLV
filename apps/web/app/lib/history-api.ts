@@ -5,7 +5,7 @@ import type { LandResultRow, SearchHistoryLog, SearchHistoryLogDetail, SearchHis
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
 export async function createSearchHistoryLog(payload: {
-  search_type: "jibun" | "road";
+  search_type: "jibun" | "road" | "map";
   pnu: string;
   address_summary: string;
   rows: LandResultRow[];
@@ -25,6 +25,33 @@ export async function fetchSearchHistoryLogs(page = 1, pageSize = 100): Promise<
     page: String(page),
     page_size: String(pageSize),
   });
+  const res = await apiFetch(`/api/v1/history/query-logs?${query.toString()}`, { method: "GET" });
+  const body = (await safeJson(res)) as SearchHistoryLogListResponse | { detail?: unknown };
+  if (!res.ok) throw new Error(extractError(body, "조회기록 목록을 불러오지 못했습니다."));
+  return body as SearchHistoryLogListResponse;
+}
+
+export async function fetchSearchHistoryLogsWithFilter(params: {
+  page?: number;
+  pageSize?: number;
+  searchType?: "jibun" | "road" | "map" | "all";
+  sido?: string;
+  sigungu?: string;
+  sortBy?: "created_at" | "address_summary" | "search_type" | "result_count";
+  sortOrder?: "asc" | "desc";
+}): Promise<SearchHistoryLogListResponse> {
+  const query = new URLSearchParams({
+    page: String(params.page ?? 1),
+    page_size: String(params.pageSize ?? 100),
+    sort_by: params.sortBy ?? "created_at",
+    sort_order: params.sortOrder ?? "desc",
+  });
+  if (params.searchType && params.searchType !== "all") {
+    query.set("search_type", params.searchType);
+  }
+  if ((params.sido ?? "").trim()) query.set("sido", (params.sido ?? "").trim());
+  if ((params.sigungu ?? "").trim()) query.set("sigungu", (params.sigungu ?? "").trim());
+
   const res = await apiFetch(`/api/v1/history/query-logs?${query.toString()}`, { method: "GET" });
   const body = (await safeJson(res)) as SearchHistoryLogListResponse | { detail?: unknown };
   if (!res.ok) throw new Error(extractError(body, "조회기록 목록을 불러오지 못했습니다."));

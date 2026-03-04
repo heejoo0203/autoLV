@@ -18,6 +18,8 @@ import type { BulkAddressMode, BulkGuide, BulkJob } from "@/app/lib/types";
 
 const POLLING_INTERVAL_MS = 3000;
 const PAGE_SIZE = 10;
+const ALLOWED_FILE_EXTENSIONS = [".xlsx", ".xls", ".csv"];
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
 
 export default function FilesPage() {
   const { user, openAuth } = useAuth();
@@ -110,6 +112,30 @@ export default function FilesPage() {
     }
   };
 
+  const handleSelectFile = (file: File | null) => {
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    const lowerName = file.name.toLowerCase();
+    const hasAllowedExt = ALLOWED_FILE_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+    if (!hasAllowedExt) {
+      setSelectedFile(null);
+      setMessage("지원하지 않는 파일 형식입니다. (.xlsx, .xls, .csv)");
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setSelectedFile(null);
+      setMessage(`파일 용량이 너무 큽니다. 최대 ${(MAX_UPLOAD_BYTES / (1024 * 1024)).toFixed(0)}MB까지 업로드할 수 있습니다.`);
+      return;
+    }
+
+    setSelectedFile(file);
+    setMessage(`선택된 파일: ${file.name} (${formatFileSize(file.size)})`);
+  };
+
   const handleTemplateDownload = async () => {
     try {
       await downloadBulkTemplate();
@@ -184,11 +210,12 @@ export default function FilesPage() {
       <BulkUploadPanel
         guide={guide}
         selectedFileName={selectedFile?.name ?? ""}
+        selectedFileSize={selectedFile?.size ?? 0}
         addressMode={addressMode}
         uploading={uploading}
         message={message}
         latestJob={latestJob}
-        onSelectFile={setSelectedFile}
+        onSelectFile={handleSelectFile}
         onAddressModeChange={setAddressMode}
         onUpload={() => void handleUpload()}
         onDownloadTemplate={() => void handleTemplateDownload()}
@@ -209,4 +236,10 @@ export default function FilesPage() {
       />
     </>
   );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -12,11 +12,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const { user, openAuth, logout } = useAuth();
   const [lookupMenuOpen, setLookupMenuOpen] = useState(false);
   const lookupMenuRef = useRef<HTMLDivElement | null>(null);
+  const lookupMenuCloseTimerRef = useRef<number | null>(null);
 
   const isLoggedIn = Boolean(user);
 
   useEffect(() => {
     setLookupMenuOpen(false);
+    if (lookupMenuCloseTimerRef.current) {
+      window.clearTimeout(lookupMenuCloseTimerRef.current);
+      lookupMenuCloseTimerRef.current = null;
+    }
   }, [pathname]);
 
   useEffect(() => {
@@ -31,6 +36,33 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       document.removeEventListener("mousedown", closeOnOutside);
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (lookupMenuCloseTimerRef.current) {
+        window.clearTimeout(lookupMenuCloseTimerRef.current);
+        lookupMenuCloseTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const openLookupMenu = () => {
+    if (lookupMenuCloseTimerRef.current) {
+      window.clearTimeout(lookupMenuCloseTimerRef.current);
+      lookupMenuCloseTimerRef.current = null;
+    }
+    setLookupMenuOpen(true);
+  };
+
+  const scheduleCloseLookupMenu = () => {
+    if (lookupMenuCloseTimerRef.current) {
+      window.clearTimeout(lookupMenuCloseTimerRef.current);
+    }
+    lookupMenuCloseTimerRef.current = window.setTimeout(() => {
+      setLookupMenuOpen(false);
+      lookupMenuCloseTimerRef.current = null;
+    }, 220);
+  };
 
   const lookupActive = pathname === "/search" || pathname === "/map" || pathname === "/files";
   const featuresActive = pathname === "/features";
@@ -49,13 +81,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <div
             className={`nav-dropdown ${lookupActive ? "active" : ""} ${lookupMenuOpen ? "open" : ""}`}
             ref={lookupMenuRef}
-            onMouseEnter={() => setLookupMenuOpen(true)}
-            onMouseLeave={() => setLookupMenuOpen(false)}
+            onMouseEnter={openLookupMenu}
+            onMouseLeave={scheduleCloseLookupMenu}
           >
             <button
               type="button"
               className={`nav-item nav-dropdown-trigger ${lookupActive ? "active" : ""}`}
-              onClick={() => setLookupMenuOpen((prev) => !prev)}
+              onClick={() => {
+                if (lookupMenuOpen) {
+                  scheduleCloseLookupMenu();
+                } else {
+                  openLookupMenu();
+                }
+              }}
               aria-expanded={lookupMenuOpen}
             >
               조회

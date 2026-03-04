@@ -8,6 +8,7 @@ const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 let preferredApiBase: string | null = null;
 
 type RecoveryPurpose = "signup" | "find_id" | "reset_password";
+type AuthMessageTone = "info" | "success" | "error";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -16,12 +17,14 @@ type AuthContextValue = {
   authOpen: boolean;
   authMode: AuthMode;
   authMessage: string;
+  authMessageTone: AuthMessageTone;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: {
     full_name: string;
+    phone_number: string;
     email: string;
     password: string;
     confirm_password: string;
@@ -38,19 +41,19 @@ type AuthContextValue = {
   }) => Promise<void>;
   deleteAccount: (confirmationText: string) => Promise<void>;
   expectedWithdrawalText: string;
-  setAuthMessage: (message: string) => void;
+  setAuthMessage: (message: string, tone?: AuthMessageTone) => void;
   refreshMe: () => Promise<AuthUser | null>;
   sendRecoveryCode: (payload: {
     purpose: RecoveryPurpose;
     email: string;
-    full_name?: string;
   }) => Promise<{
     verification_id: string;
     expires_in_seconds: number;
     message: string;
     debug_code?: string | null;
   }>;
-  findIdByCode: (payload: { verification_id: string; code: string }) => Promise<{ email: string }>;
+  findIdByProfile: (payload: { full_name: string; phone_number: string }) => Promise<{ masked_email: string }>;
+  checkEmailAvailability: (email: string) => Promise<boolean>;
   resetPasswordByCode: (payload: {
     email: string;
     verification_id: string;
@@ -59,6 +62,7 @@ type AuthContextValue = {
     confirm_new_password: string;
   }) => Promise<string>;
   loadTerms: () => Promise<UserTerms>;
+  loadPublicTerms: () => Promise<UserTerms>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,7 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
-  const [authMessage, setAuthMessage] = useState("로그인 후 파일 조회 기능을 사용할 수 있습니다.");
+  const [authMessage, setAuthMessageState] = useState("");
+  const [authMessageTone, setAuthMessageTone] = useState<AuthMessageTone>("info");
+
+  const setAuthMessage = (message: string, tone: AuthMessageTone = "info") => {
+    setAuthMessageState(message);
+    setAuthMessageTone(tone);
+  };
 
   async function refreshMe(): Promise<AuthUser | null> {
     try {
@@ -97,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const openAuth = (mode: AuthMode) => {
     setAuthMode(mode);
     setAuthOpen(true);
+    setAuthMessage("");
   };
 
   const closeAuth = () => setAuthOpen(false);
@@ -113,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = (await safeJson(res)) as AuthUser | { detail?: unknown };
       if (!res.ok) throw new Error(extractError(payload, "로그인에 실패했습니다."));
       await refreshMe();
-      setAuthMessage("로그인되었습니다.");
+      setAuthMessage("로그인되었습니다.", "success");
       setAuthOpen(false);
     } finally {
       setAuthLoading(false);
@@ -122,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (payload: {
     full_name: string;
+    phone_number: string;
     email: string;
     password: string;
     confirm_password: string;
@@ -138,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const body = (await safeJson(res)) as { detail?: unknown };
       if (!res.ok) throw new Error(extractError(body, "회원가입에 실패했습니다."));
-      setAuthMessage("회원가입이 완료되었습니다. 로그인해 주세요.");
+      setAuthMessage("회원가입이 완료되었습니다. 로그인해 주세요.", "success");
       setAuthMode("login");
     } finally {
       setAuthLoading(false);
@@ -170,7 +182,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } finally {
-      setAuthMessage(remoteSuccess ? "로그아웃되었습니다." : "서버 연결 문제로 로컬 로그아웃 처리되었습니다.");
+      setAuthMessage(
+        remoteSuccess ? "로그아웃되었습니다." : "서버 연결 문제로 로컬 로그아웃 처리되었습니다.",
+        remoteSuccess ? "success" : "error"
+      );
       setAuthLoading(false);
     }
   };
@@ -192,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const body = (await safeJson(res)) as AuthUser | { detail?: unknown };
       if (!res.ok) throw new Error(extractError(body, "회원정보 수정에 실패했습니다."));
       setUser(normalizeUser(body as AuthUser));
-      setAuthMessage("회원정보가 수정되었습니다.");
+      setAuthMessage("회원정보가 수정되었습니다.", "success");
     } finally {
       setAuthLoading(false);
     }
@@ -212,7 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const body = (await safeJson(res)) as { message?: string; detail?: unknown };
       if (!res.ok) throw new Error(extractError(body, "비밀번호 변경에 실패했습니다."));
-      setAuthMessage(body.message ?? "비밀번호가 변경되었습니다.");
+      setAuthMessage(body.message ?? "비밀번호가 변경되었습니다.", "success");
     } finally {
       setAuthLoading(false);
     }
@@ -231,17 +246,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setAuthOpen(false);
       setAuthMode("login");
-      setAuthMessage("회원 탈퇴가 완료되었습니다.");
+      setAuthMessage("회원 탈퇴가 완료되었습니다.", "success");
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const sendRecoveryCode = async (payload: {
-    purpose: RecoveryPurpose;
-    email: string;
-    full_name?: string;
-  }) => {
+  const sendRecoveryCode = async (payload: { purpose: RecoveryPurpose; email: string }) => {
     const res = await authFetch("/api/v1/auth/recovery/send-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -254,15 +265,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return body as { verification_id: string; expires_in_seconds: number; message: string; debug_code?: string };
   };
 
-  const findIdByCode = async (payload: { verification_id: string; code: string }) => {
-    const res = await authFetch("/api/v1/auth/recovery/find-id", {
+  const findIdByProfile = async (payload: { full_name: string; phone_number: string }) => {
+    const res = await authFetch("/api/v1/auth/recovery/find-id/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const body = (await safeJson(res)) as { email: string } | { detail?: unknown };
+    const body = (await safeJson(res)) as { masked_email: string } | { detail?: unknown };
     if (!res.ok) throw new Error(extractError(body, "아이디 찾기에 실패했습니다."));
-    return body as { email: string };
+    return body as { masked_email: string };
+  };
+
+  const checkEmailAvailability = async (email: string) => {
+    const query = encodeURIComponent(email.trim());
+    const res = await authFetch(`/api/v1/auth/email-availability?email=${query}`, { method: "GET" });
+    const body = (await safeJson(res)) as { available: boolean } | { detail?: unknown };
+    if (!res.ok) throw new Error(extractError(body, "이메일 중복 확인에 실패했습니다."));
+    return (body as { available: boolean }).available;
   };
 
   const resetPasswordByCode = async (payload: {
@@ -289,6 +308,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return body as UserTerms;
   };
 
+  const loadPublicTerms = async () => {
+    const res = await authFetch("/api/v1/auth/terms/current", { method: "GET" });
+    const body = (await safeJson(res)) as UserTerms | { detail?: unknown };
+    if (!res.ok) throw new Error(extractError(body, "약관 조회에 실패했습니다."));
+    return body as UserTerms;
+  };
+
   const expectedWithdrawalText = useMemo(() => {
     const nickname = (user?.full_name ?? user?.email?.split("@")[0] ?? "").trim();
     return nickname ? `${nickname} 탈퇴를 동의합니다` : "";
@@ -302,6 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authOpen,
       authMode,
       authMessage,
+      authMessageTone,
       openAuth,
       closeAuth,
       setAuthMode,
@@ -315,11 +342,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthMessage,
       refreshMe,
       sendRecoveryCode,
-      findIdByCode,
+      findIdByProfile,
+      checkEmailAvailability,
       resetPasswordByCode,
       loadTerms,
+      loadPublicTerms,
     }),
-    [user, loading, authLoading, authOpen, authMode, authMessage, expectedWithdrawalText]
+    [user, loading, authLoading, authOpen, authMode, authMessage, authMessageTone, expectedWithdrawalText]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -33,9 +33,11 @@ from app.repositories.user_repository import (
     delete_user_by_id,
     get_user_by_email,
     get_user_by_id,
+    get_user_by_profile,
     save_user,
 )
 from app.schemas.auth import (
+    FindIdByProfileRequest,
     FindIdCompleteRequest,
     LoginRequest,
     PasswordChangeRequest,
@@ -76,6 +78,7 @@ def register_user(db: Session, payload: RegisterRequest) -> User:
         email=payload.email,
         password_hash=password_hash,
         full_name=payload.full_name,
+        phone_number=payload.phone_number,
         terms_version=terms_version,
         terms_snapshot=terms_snapshot,
         terms_accepted_at=_now_utc(),
@@ -157,6 +160,7 @@ def build_user_out(user: User) -> UserOut:
         id=user.id,
         email=user.email,
         full_name=user.full_name,
+        phone_number=user.phone_number,
         role=user.role,
         auth_provider=user.auth_provider,
         profile_image_url=profile_url,
@@ -170,6 +174,11 @@ def get_terms_for_user(user: User) -> TermsResponse:
         content=user.terms_snapshot or fallback_terms,
         accepted_at=user.terms_accepted_at,
     )
+
+
+def get_terms_for_user_public() -> TermsResponse:
+    version, content = get_current_terms()
+    return TermsResponse(version=version, content=content, accepted_at=None)
 
 
 def update_profile(
@@ -277,6 +286,30 @@ def find_id_by_code(db: Session, payload: FindIdCompleteRequest) -> str:
     email = verification.email
     consume_verification(db, verification)
     return email
+
+
+def find_id_by_profile(db: Session, payload: FindIdByProfileRequest) -> str:
+    user = get_user_by_profile(
+        db,
+        full_name=payload.full_name.strip(),
+        phone_number=payload.phone_number,
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "ACCOUNT_NOT_FOUND", "message": "일치하는 회원 정보를 찾을 수 없습니다."},
+        )
+    return mask_email(user.email)
+
+
+def check_email_available(db: Session, email: str) -> bool:
+    normalized = (email or "").strip().lower()
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "EMAIL_REQUIRED", "message": "이메일을 입력해 주세요."},
+        )
+    return get_user_by_email(db, normalized) is None
 
 
 def reset_password_by_code(db: Session, payload: ResetPasswordByCodeRequest) -> None:
@@ -495,3 +528,13 @@ def _generate_verification_code() -> str:
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def mask_email(email: str) -> str:
+    local_part, _, domain = email.partition("@")
+    if not domain:
+        return "***"
+
+    prefix = local_part[:2]
+    suffix = local_part[-2:] if len(local_part) > 2 else local_part
+    return f"{prefix}***{suffix}@{domain}"

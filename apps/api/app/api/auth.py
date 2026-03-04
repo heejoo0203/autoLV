@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Cookie, Depends, File, Form, UploadFile, Response, status
+from pydantic import EmailStr
+from fastapi import APIRouter, Cookie, Depends, File, Form, Query, UploadFile, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.auth import (
     AccountDeleteRequest,
     AuthResponse,
+    EmailAvailabilityResponse,
+    FindIdByProfileRequest,
+    FindIdByProfileResponse,
     FindIdCompleteRequest,
     FindIdCompleteResponse,
     LoginRequest,
@@ -19,11 +23,14 @@ from app.schemas.auth import (
 from app.services.auth_service import (
     attach_auth_cookies,
     build_user_out,
+    check_email_available,
     change_password,
     clear_auth_cookies,
     delete_account,
+    find_id_by_profile,
     find_id_by_code,
     get_user_from_access_token,
+    get_terms_for_user_public,
     get_terms_for_user,
     login_user,
     register_user,
@@ -39,6 +46,15 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthResponse:
     user = register_user(db, payload)
     return AuthResponse(user_id=user.id, email=user.email, full_name=user.full_name)
+
+
+@router.get("/email-availability", response_model=EmailAvailabilityResponse)
+def email_availability(
+    email: EmailStr = Query(...),
+    db: Session = Depends(get_db),
+) -> EmailAvailabilityResponse:
+    available = check_email_available(db, str(email))
+    return EmailAvailabilityResponse(email=email, available=available)
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -71,6 +87,11 @@ def terms(
 ) -> TermsResponse:
     user = get_user_from_access_token(db, access_token)
     return get_terms_for_user(user)
+
+
+@router.get("/terms/current", response_model=TermsResponse)
+def current_terms() -> TermsResponse:
+    return get_terms_for_user_public()
 
 
 @router.patch("/profile", response_model=UserOut)
@@ -126,6 +147,15 @@ def send_code(payload: RecoveryCodeSendRequest, db: Session = Depends(get_db)) -
 def find_id(payload: FindIdCompleteRequest, db: Session = Depends(get_db)) -> FindIdCompleteResponse:
     email = find_id_by_code(db, payload)
     return FindIdCompleteResponse(email=email)
+
+
+@router.post("/recovery/find-id/profile", response_model=FindIdByProfileResponse)
+def find_id_by_user_profile(
+    payload: FindIdByProfileRequest,
+    db: Session = Depends(get_db),
+) -> FindIdByProfileResponse:
+    masked_email = find_id_by_profile(db, payload)
+    return FindIdByProfileResponse(masked_email=masked_email)
 
 
 @router.post("/recovery/reset-password")

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, mo
 
 NICKNAME_PATTERN = re.compile(r"^[A-Za-z0-9가-힣]{2,20}$")
 PASSWORD_SPECIAL_PATTERN = re.compile(r"[^A-Za-z0-9]")
+PHONE_ALLOWED_PATTERN = re.compile(r"^[0-9\-\s]+$")
 
 
 def validate_password_policy(value: str, *, field_label: str = "비밀번호") -> str:
@@ -26,11 +27,25 @@ def validate_nickname(value: str) -> str:
     return value
 
 
+def normalize_phone_number(value: str) -> str:
+    cleaned = (value or "").strip()
+    if not cleaned:
+        raise ValueError("연락처를 입력해 주세요.")
+    if not PHONE_ALLOWED_PATTERN.fullmatch(cleaned):
+        raise ValueError("연락처는 숫자와 하이픈(-)만 입력할 수 있습니다.")
+
+    digits = re.sub(r"[^0-9]", "", cleaned)
+    if not re.fullmatch(r"[0-9]{9,11}", digits):
+        raise ValueError("연락처는 9~11자리 숫자여야 합니다.")
+    return digits
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=16)
     confirm_password: str = Field(min_length=8, max_length=16)
     full_name: str = Field(min_length=2, max_length=20)
+    phone_number: str = Field(min_length=9, max_length=20)
     agreements: bool
     verification_id: str = Field(min_length=36, max_length=36)
     verification_code: str = Field(min_length=6, max_length=6)
@@ -39,6 +54,11 @@ class RegisterRequest(BaseModel):
     @classmethod
     def validate_full_name(cls, value: str) -> str:
         return validate_nickname(value)
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, value: str) -> str:
+        return normalize_phone_number(value)
 
     @field_validator("password")
     @classmethod
@@ -86,6 +106,7 @@ class UserOut(BaseModel):
     id: str
     email: EmailStr
     full_name: str | None
+    phone_number: str | None = None
     role: str
     auth_provider: str
     profile_image_url: str | None = None
@@ -95,6 +116,11 @@ class AuthResponse(BaseModel):
     user_id: str
     email: EmailStr
     full_name: str | None = None
+
+
+class EmailAvailabilityResponse(BaseModel):
+    email: EmailStr
+    available: bool
 
 
 class TermsResponse(BaseModel):
@@ -186,6 +212,25 @@ class FindIdCompleteRequest(BaseModel):
 
 class FindIdCompleteResponse(BaseModel):
     email: EmailStr
+
+
+class FindIdByProfileRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=20)
+    phone_number: str = Field(min_length=9, max_length=20)
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, value: str) -> str:
+        return validate_nickname(value)
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, value: str) -> str:
+        return normalize_phone_number(value)
+
+
+class FindIdByProfileResponse(BaseModel):
+    masked_email: str
 
 
 class ResetPasswordByCodeRequest(BaseModel):

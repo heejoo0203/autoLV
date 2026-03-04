@@ -65,6 +65,9 @@ cd apps/mobile
 npm run android:build:release
 ```
 
+출력:
+- `apps/mobile/android/app/build/outputs/apk/release/app-release.apk`
+
 ## 5) 운영 권장
 1. Play 배포 전에는 반드시 release keystore로 서명
 2. keystore는 Git에 커밋 금지 (`.gitignore` 반영됨)

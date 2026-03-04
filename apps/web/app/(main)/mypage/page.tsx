@@ -193,6 +193,22 @@ export default function MyPage() {
           {!termsLoading && !terms ? <p className="hint">약관 정보를 불러오지 못했습니다.</p> : null}
         </article>
 
+        <article className="mypage-card">
+          <h3>앱 다운로드</h3>
+          <p className="hint">
+            안드로이드 기기에서 autoLV 앱을 설치해 모바일 환경에서 바로 사용할 수 있습니다.
+          </p>
+          <a
+            className="btn-primary full"
+            href="/downloads/autoLV-android-release.apk"
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            안드로이드 앱 APK 다운로드
+          </a>
+        </article>
+
         <article className="mypage-card danger-zone">
           <h3>회원 탈퇴</h3>
           <p className="danger-guide">

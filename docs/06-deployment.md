@@ -1,12 +1,13 @@
-# 배포 가이드 (v2.2.0)
+# 배포 가이드 (v2.2.1)
 
 ## 0. 릴리스 기준
-- 최신 릴리스 노트: `docs/09-release-notes-v2.2.0.md`
-- 이전 안정 태그: `v2.1.1`
+- 최신 릴리스 노트: `docs/10-release-notes-v2.2.1.md`
+- 이전 안정 태그: `v2.2.0`
 - 현재 문서 기준 범위:
   - Web v2.x (개별/지도/파일/조회기록/마이페이지/정책 페이지)
   - API v2.x (인증 확장 + 지도조회 + 파일조회 + 기록)
   - Android Wrapper(APK/AAB 배포)
+  - 구역조회 미리보기/명시 저장 워크플로우
 
 ## 1. 배포 토폴로지
 - Web: Vercel (`apps/web`)
@@ -61,6 +62,13 @@ SMTP_USE_SSL=false
 ```env
 VWORLD_PROXY_URL=http://<EC2_ELASTIC_IP>:8080/vworld-proxy
 VWORLD_PROXY_TOKEN=<shared-token>
+```
+
+향후 v3.x 준비(건축물대장 분석):
+```env
+BUILDING_LEDGER_API_KEY=<public-data-service-key>
+BUILDING_LEDGER_API_BASE_URL=https://apis.data.go.kr
+BUILDING_LEDGER_TIMEOUT_SECONDS=15
 ```
 
 ### 3.2 Web (`apps/web`)
@@ -128,7 +136,7 @@ Railway -> VWorld 직접 호출이 차단/불안정할 때 적용한다.
 
 ## 8. Android 배포 산출물
 - APK(웹 다운로드 배포용):
-  - `apps/web/public/downloads/autoLV-android-release-v2.1.2.apk`
+  - `apps/web/public/downloads/autoLV-android-release-v2.2.0.apk`
 - AAB(Play Console 업로드용):
   - `apps/mobile/android/app/build/outputs/bundle/release/app-release.aab`
 
@@ -141,7 +149,7 @@ Railway -> VWorld 직접 호출이 차단/불안정할 때 적용한다.
 2. 개별조회: 지번/도로명 조회
 3. 지도조회: 지도 렌더링/클릭/주소검색/CSV/상세조회
 4. 파일조회: 업로드/진행률/다운로드/삭제
-5. 조회기록: 저장/필터/정렬/페이지 이동 복원
+5. 조회기록: 저장/필터/정렬/페이지 이동 복원/선택 삭제
 6. 마이페이지: 이름/연락처/이미지 수정, 약관 확인, 탈퇴
 
 ## 10. 롤백 전략

@@ -1,4 +1,4 @@
-# 데이터 저장 구조 (v2.2.0)
+# 데이터 저장 구조 (v2.2.1)
 
 ## 1. DB 런타임 구성
 - 로컬 개발 기본 DB: SQLite (`apps/api/autolv.db`)
@@ -111,6 +111,10 @@
 - `created_at` (DateTime(timezone=True), NOT NULL, INDEX)
 - `updated_at` (DateTime(timezone=True), NOT NULL)
 
+비고:
+- `zone_analyses`는 `/map/zones/analyze` 호출 시 자동 생성되지 않는다.
+- 사용자가 `구역 저장`을 눌러 `/map/zones`를 호출했을 때만 영속 저장된다.
+
 ### 2.7 zone_analysis_parcels
 - `id` (String(36), PK)
 - `zone_analysis_id` (String(36), FK -> `zone_analyses.id`, NOT NULL, INDEX)
@@ -149,3 +153,34 @@
 3. PostgreSQL 환경에서 `postgis_version()` 확인
 4. `parcels` 인덱스(`idx_parcels_geog_gist`, `idx_parcels_geom_gist`) 존재 확인
 5. 관리자 계정 시드 필요 시 `scripts/reset_db_and_seed_admin.py` 실행
+
+## 6. 예정 스키마 확장 (v3.x)
+건축물대장 기반 노후도/용적률 분석을 위해 다음 확장을 권장한다.
+
+### 6.1 building_register_cache (예정)
+- `id` (String(36), PK)
+- `pnu` (String(19), NOT NULL, INDEX)
+- `building_mgmt_no` (String(50), NULL, INDEX)
+- `approval_date` (Date, NULL)
+- `site_area_sqm` (Float, NULL)
+- `gross_floor_area_sqm` (Float, NULL)
+- `floor_area_ratio` (Float, NULL)
+- `structure_name` (String(100), NULL)
+- `main_purpose_name` (String(100), NULL)
+- `source_api` (String(30), NOT NULL)
+- `raw_json` (Text, NOT NULL)
+- `fetched_at` (DateTime(timezone=True), NOT NULL, INDEX)
+
+### 6.2 zone_building_metrics (예정)
+- `id` (String(36), PK)
+- `zone_analysis_id` (String(36), FK -> `zone_analyses.id`, NOT NULL, UNIQUE)
+- `aging_threshold_years` (Integer, NOT NULL)
+- `building_count` (Integer, NOT NULL)
+- `aged_building_count` (Integer, NOT NULL)
+- `aging_ratio` (Float, NOT NULL)
+- `average_approval_year` (Integer, NULL)
+- `total_site_area_sqm` (Float, NULL)
+- `total_gross_floor_area_sqm` (Float, NULL)
+- `floor_area_ratio` (Float, NULL)
+- `created_at` (DateTime(timezone=True), NOT NULL)
+- `updated_at` (DateTime(timezone=True), NOT NULL)

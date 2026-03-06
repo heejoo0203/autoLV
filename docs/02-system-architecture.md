@@ -1,4 +1,4 @@
-# 시스템 아키텍처 (v2.2.0)
+# 시스템 아키텍처 (v2.2.1)
 
 ## 1. 아키텍처 개요
 - Frontend(Web): Next.js 15 (App Router), TypeScript, Tailwind
@@ -41,6 +41,7 @@
 - `bulk_jobs`: 대량조회 작업 상태/결과 경로
 - `query_logs`: 개별/지도 조회기록
 - `parcels`: 지도 조회 캐시 + 공간 질의 기초 데이터
+- `zone_analyses`, `zone_analysis_parcels`: 저장된 구역 분석 결과
 - 파일 스토리지
   - 업로드/결과: `apps/api/storage/bulk`
   - 프로필 이미지: `apps/api/storage/profile_images`
@@ -86,7 +87,7 @@
 
 ### 3.5 구역조회(폴리곤)
 1. 로그인 사용자가 지도조회 화면의 `구역 조회` 모드에서 폴리곤 꼭짓점을 선택
-2. `/map/zones/analyze` 호출 (구역명 + 좌표 + 포함 임계치)
+2. `/map/zones/analyze` 호출로 미리보기 분석 수행 (자동 저장 없음)
 3. API 내부 처리:
    - 폴리곤 정규화/검증(`ST_IsValid`)
    - 면적 제한 검사(`ST_Area`)
@@ -94,13 +95,14 @@
    - `parcels` 지오메트리 업서트
    - PostGIS 교차 계산(`ST_Intersection`), 90% 이상 포함 필지 판정
    - 최신연도 기준 합계/면적 기반 금액 집계
-4. 결과를 `zone_analyses`, `zone_analysis_parcels`에 영속 저장
-5. 프론트에서 요약 카드 + 필지 목록 + 선택 제외 + CSV 다운로드 제공
+4. 사용자가 `구역 저장`을 누르면 `/map/zones` 호출로 `zone_analyses`, `zone_analysis_parcels`에 영속 저장
+5. 프론트에서 요약 카드 + 필지 목록 + 선택 제외 + 저장 구역 사이드바 + CSV 다운로드 제공
 
 ### 3.6 조회기록
 1. `/history/query-logs`로 최신순 목록 조회
 2. 유형/시도/시군구 필터 및 정렬(`created_at`, `address_summary`, `search_type`, `result_count`)
-3. 항목 클릭 시:
+3. 다중 선택 삭제는 `/history/query-logs/delete`로 처리
+4. 항목 클릭 시:
    - `jibun|road` -> `/search?recordId=...`
    - `map` -> `/map?recordId=...`
 
@@ -114,6 +116,10 @@
 ![시스템 아키텍처](./architecture.svg)
 
 ## 6. 다음 단계(TO-BE)
+- 건축물대장 API 기반 구역 사업성 분석 계층 추가
+  - 건물 노후도(%), 평균 사용승인년도
+  - 평균 용적률(총연면적 / 총대지면적)
+  - 건축물대장 응답 캐시
 - 구역조회 이력 페이지(구역명 검색/재열람/비교) 추가
 - 운영 지표 수집(에러율, VWorld 실패율, 프록시 사용률, 구역분석 성공률)
 - 소셜 로그인(네이버/카카오)

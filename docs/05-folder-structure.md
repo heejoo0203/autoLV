@@ -1,4 +1,4 @@
-# 폴더 구조 (v2.2.0)
+# 폴더 구조 (v2.2.1)
 
 ## 1. 현재 구조
 ```text
@@ -130,6 +130,7 @@ autoLV/
     07-release-notes-v1.0.0.md
     08-portfolio-enhancement.md
     09-release-notes-v2.2.0.md
+    10-release-notes-v2.2.1.md
     feature-spec.md
     architecture.svg
     TN_SPRD_RDNM.txt
@@ -163,13 +164,15 @@ autoLV/
 - 법정동 코드 파일: `apps/web/public/ld_codes.json`
 - 파일 업로드 결과(런타임): `apps/api/storage/bulk`
 - 프로필 이미지(런타임): `apps/api/storage/profile_images`
-- 배포 APK 파일: `apps/web/public/downloads/autoLV-android-release-v2.1.2.apk`
+- 배포 APK 파일(최신): `apps/web/public/downloads/autoLV-android-release-v2.2.0.apk`
+- 고정 다운로드 경로: `apps/web/public/downloads/autoLV-android-release.apk`
 
 ## 4. 모듈 분리 원칙
 - API는 `api -> schemas -> services -> repositories -> models` 계층으로 분리
 - Bulk 처리 로직은 `services/bulk/*`로 세분화해 유지보수성 확보
 - Web은 페이지/컴포넌트/API 클라이언트(`lib/*`)를 분리
 - 지도조회/조회기록은 페이지 단의 UI와 API 호출 모듈을 분리
+- 저장 구역/조회기록 삭제처럼 목록성 기능은 페이지 UI와 API 클라이언트 분리 원칙 유지
 
 ## 5. 향후 확장 권장
 - 지도 폴리곤 분석 고도화 시 모듈 분리 권장:
@@ -177,3 +180,7 @@ autoLV/
 - 운영 지표 도입 시 모듈 추가 권장:
   - `app/services/metrics_service.py`
   - `app/api/metrics.py`
+- 건축물대장 분석 확장 시 모듈 추가 권장:
+  - `app/services/building_register_service.py`
+  - `app/services/zone_building_service.py`
+  - `app/models/building_register_cache.py`

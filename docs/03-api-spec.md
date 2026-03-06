@@ -1,4 +1,4 @@
-# API 명세 (v2.2.0)
+# API 명세 (v2.2.1)
 
 기본 경로: `/api/v1`  
 인증: 쿠키 기반 JWT (`access_token`, `refresh_token`)
@@ -711,7 +711,35 @@
 }
 ```
 
-## 6. 오류 응답 형식
+## 6. 예정 API (v3.x, 미구현)
+### POST `/map/zones/building-analysis`
+설명:
+- 저장된 구역 또는 좌표 기반 구역에 대해 건축물대장 분석 수행
+- 노후도(%), 평균 사용승인년도, 평균 용적률, 총연면적/총대지면적을 계산
+
+예정 요청:
+```json
+{
+  "zone_id": "zone-uuid",
+  "aging_threshold_years": 20
+}
+```
+
+예정 응답:
+```json
+{
+  "zone_id": "zone-uuid",
+  "building_count": 42,
+  "aged_building_count": 29,
+  "aging_ratio": 69.05,
+  "average_approval_year": 1998,
+  "total_site_area": 12843.4,
+  "total_gross_floor_area": 18652.8,
+  "floor_area_ratio": 145.24
+}
+```
+
+## 7. 오류 응답 형식
 FastAPI 기본 `detail` 형식 사용:
 
 ```json
@@ -730,4 +758,5 @@ FastAPI 기본 `detail` 형식 사용:
 - 파일조회: `BULK_FILE_INVALID`, `BULK_ROW_LIMIT_EXCEEDED`, `BULK_JOB_NOT_FOUND`, `BULK_JOB_NOT_READY`
 - 지도조회: `INVALID_COORDINATE`, `INVALID_PNU`, `MAP_ADDRESS_NOT_FOUND`, `PARCEL_NOT_FOUND`
 - 구역조회: `POSTGIS_REQUIRED`, `ZONE_TOO_FEW_POINTS`, `ZONE_TOO_MANY_POINTS`, `ZONE_AREA_TOO_LARGE`, `INVALID_ZONE_GEOMETRY`, `ZONE_ANALYSIS_NOT_FOUND`
+- 건축물대장(예정): `BUILDING_LEDGER_UNREACHABLE`, `BUILDING_LEDGER_RATE_LIMITED`, `BUILDING_LEDGER_NOT_FOUND`
 - 조회기록: `QUERY_LOG_NOT_FOUND`

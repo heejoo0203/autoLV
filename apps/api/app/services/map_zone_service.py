@@ -761,55 +761,83 @@ def _parse_vworld_feature(raw: dict[str, Any]) -> _VWorldParcelFeature | None:
 
 
 def _upsert_parcel_geometries(db: Session, features: list[_VWorldParcelFeature]) -> None:
+    if not features:
+        return
+
     now = datetime.now(timezone.utc)
-    for item in features:
-        db.execute(
-            text(
-                """
-                WITH geom_data AS (
-                  SELECT ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(:geometry_json), 4326)) AS geom
-                ),
-                centroid AS (
-                  SELECT
-                    ST_X(ST_Centroid(geom)) AS lng,
-                    ST_Y(ST_Centroid(geom)) AS lat,
-                    geom
-                  FROM geom_data
-                )
-                INSERT INTO parcels (
-                  id, pnu, lat, lng, area, price_current, price_previous, updated_at, geog, geom
-                )
-                SELECT
-                  :id,
-                  :pnu,
-                  centroid.lat,
-                  centroid.lng,
-                  ST_Area(centroid.geom::geography),
-                  :price_current,
-                  NULL,
-                  :updated_at,
-                  ST_SetSRID(ST_MakePoint(centroid.lng, centroid.lat), 4326)::geography,
-                  centroid.geom
-                FROM centroid
-                ON CONFLICT (pnu) DO UPDATE
-                SET
-                  lat = EXCLUDED.lat,
-                  lng = EXCLUDED.lng,
-                  area = COALESCE(EXCLUDED.area, parcels.area),
-                  price_current = COALESCE(EXCLUDED.price_current, parcels.price_current),
-                  updated_at = EXCLUDED.updated_at,
-                  geog = EXCLUDED.geog,
-                  geom = EXCLUDED.geom
-                """
-            ),
+    feature_payload = json.dumps(
+        [
             {
                 "id": str(uuid.uuid4()),
                 "pnu": item.pnu,
                 "geometry_json": item.geometry_json,
                 "price_current": item.price_current,
-                "updated_at": now,
-            },
-        )
+            }
+            for item in features
+        ],
+        ensure_ascii=False,
+    )
+    db.execute(
+        text(
+            """
+            WITH src AS (
+              SELECT
+                item->>'id' AS id,
+                item->>'pnu' AS pnu,
+                item->>'geometry_json' AS geometry_json,
+                NULLIF(item->>'price_current', '')::BIGINT AS price_current
+              FROM jsonb_array_elements(CAST(:feature_payload AS JSONB)) AS item
+            ),
+            geom_data AS (
+              SELECT
+                id,
+                pnu,
+                price_current,
+                ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(geometry_json), 4326)) AS geom
+              FROM src
+            ),
+            prepared AS (
+              SELECT
+                id,
+                pnu,
+                price_current,
+                ST_Y(ST_Centroid(geom)) AS lat,
+                ST_X(ST_Centroid(geom)) AS lng,
+                ST_Area(geom::geography) AS area,
+                geom
+              FROM geom_data
+            )
+            INSERT INTO parcels (
+              id, pnu, lat, lng, area, price_current, price_previous, updated_at, geog, geom
+            )
+            SELECT
+              id,
+              pnu,
+              lat,
+              lng,
+              area,
+              price_current,
+              NULL,
+              :updated_at,
+              ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography,
+              geom
+            FROM prepared
+            ON CONFLICT (pnu) DO UPDATE
+            SET
+              lat = EXCLUDED.lat,
+              lng = EXCLUDED.lng,
+              area = COALESCE(EXCLUDED.area, parcels.area),
+              price_current = COALESCE(EXCLUDED.price_current, parcels.price_current),
+              updated_at = EXCLUDED.updated_at,
+              geog = EXCLUDED.geog,
+              geom = EXCLUDED.geom
+            """
+        ),
+        {
+            "feature_payload": feature_payload,
+            "updated_at": now,
+        },
+    )
 
     db.flush()
 

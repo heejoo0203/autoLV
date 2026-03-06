@@ -171,7 +171,7 @@ export type MapZoneSummary = {
   parcel_count: number;
   counted_parcel_count: number;
   excluded_parcel_count: number;
-  unit_price_sum: number;
+  average_unit_price: number | null;
   assessed_total_price: number;
   created_at: string;
   updated_at: string;

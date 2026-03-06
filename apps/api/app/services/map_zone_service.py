@@ -162,7 +162,10 @@ def get_zone_detail(db: Session, *, user_id: str, zone_id: str) -> MapZoneRespon
         parcel_count=int(analysis.parcel_count),
         counted_parcel_count=int(analysis.counted_parcel_count),
         excluded_parcel_count=int(analysis.excluded_parcel_count),
-        unit_price_sum=int(analysis.unit_price_sum),
+        average_unit_price=_calculate_average_unit_price(
+            assessed_total_price=int(analysis.assessed_total_price),
+            zone_area_sqm=float(analysis.zone_area_sqm),
+        ),
         assessed_total_price=int(analysis.assessed_total_price),
         created_at=_to_iso(analysis.created_at),
         updated_at=_to_iso(analysis.updated_at),
@@ -783,6 +786,12 @@ def _calculate_estimated_total_price(area_sqm: float | None, price_current: int 
     if area_sqm is None or price_current is None:
         return None
     return int(round(float(area_sqm) * int(price_current)))
+
+
+def _calculate_average_unit_price(*, assessed_total_price: int, zone_area_sqm: float) -> int | None:
+    if zone_area_sqm <= 0:
+        return None
+    return int(round(assessed_total_price / zone_area_sqm))
 
 
 def _to_int(value: Any) -> int | None:

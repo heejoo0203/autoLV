@@ -1083,7 +1083,7 @@ function ZoneResultTable({
         <MetricCard label="기준연도(최신)" value={summary.base_year || "-"} />
         <MetricCard label="구역 면적(㎡)" value={formatArea(summary.zone_area_sqm)} />
         <MetricCard label="구역 내 필지 수" value={formatNumber(summary.parcel_count)} />
-        <MetricCard label="필지 단가 합계(원/㎡)" value={formatNumber(summary.unit_price_sum)} />
+        <MetricCard label="평균 공시지가(원/㎡)" value={formatNumber(summary.average_unit_price)} />
         <MetricCard label="총 공시지가 합계(원)" value={formatNumber(summary.assessed_total_price)} />
       </div>
       <p className="hint">필지 포함 기준: 구역 내부 {overlapPercent}% 이상 포함된 경우만 집계합니다.</p>

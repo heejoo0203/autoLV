@@ -88,7 +88,7 @@ class MapZoneSummary(BaseModel):
     parcel_count: int
     counted_parcel_count: int
     excluded_parcel_count: int
-    unit_price_sum: int
+    average_unit_price: int | None
     assessed_total_price: int
     created_at: str
     updated_at: str

@@ -518,7 +518,7 @@
     "parcel_count": 128,
     "counted_parcel_count": 126,
     "excluded_parcel_count": 0,
-    "unit_price_sum": 128900000,
+    "average_unit_price": 50646974,
     "assessed_total_price": 923456700000,
     "created_at": "2026-03-06T01:23:45+00:00",
     "updated_at": "2026-03-06T01:23:45+00:00"

@@ -14,6 +14,7 @@ autoLV/
           20260304_0003_add_parcels_and_postgis.py
           20260305_0004_add_email_verifications_and_terms.py
           20260305_0005_add_phone_number_to_users.py
+          20260306_0006_add_zone_analysis_tables.py
       app/
         api/
           auth.py
@@ -34,6 +35,8 @@ autoLV/
           bulk_job.py
           query_log.py
           parcel.py
+          zone_analysis.py
+          zone_analysis_parcel.py
         repositories/
           user_repository.py
           bulk_job_repository.py
@@ -53,6 +56,7 @@ autoLV/
           terms_service.py
           vworld_service.py
           map_service.py
+          map_zone_service.py
           bulk/
             constants.py
             column_mapper.py
@@ -167,9 +171,8 @@ autoLV/
 - 지도조회/조회기록은 페이지 단의 UI와 API 호출 모듈을 분리
 
 ## 5. 향후 확장 권장
-- 지도 폴리곤 집계 도입 시 API 모듈 분리 권장:
-  - `app/api/map_aggregate.py`
-  - `app/services/map_aggregate_service.py`
+- 지도 폴리곤 분석 고도화 시 모듈 분리 권장:
+  - `app/services/map_zone_service.py` 내 계산/집계/내보내기 하위 모듈화
 - 운영 지표 도입 시 모듈 추가 권장:
   - `app/services/metrics_service.py`
   - `app/api/metrics.py`

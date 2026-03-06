@@ -12,6 +12,7 @@
 - `20260304_0003`: `parcels` + PostGIS 컬럼/인덱스(`geog`, `geom`)
 - `20260305_0004`: `email_verifications` + `users` 약관 컬럼
 - `20260305_0005`: `users.phone_number`
+- `20260306_0006`: `zone_analyses`, `zone_analysis_parcels`
 
 ## 2. 테이블 상세
 ### 2.1 users
@@ -93,6 +94,41 @@
 - `idx_parcels_geog_gist` (GIST on `geog`)
 - `idx_parcels_geom_gist` (GIST on `geom`)
 
+### 2.6 zone_analyses
+- `id` (String(36), PK)
+- `user_id` (String(36), FK -> `users.id`, NOT NULL, INDEX)
+- `zone_name` (String(100), NOT NULL)
+- `zone_wkt` (Text, NOT NULL)
+- `overlap_threshold` (Float, NOT NULL, 기본값 `0.9`)
+- `zone_area_sqm` (Float, NOT NULL)
+- `base_year` (String(4), NULL)
+- `parcel_count` (Integer, NOT NULL)
+- `counted_parcel_count` (Integer, NOT NULL)
+- `excluded_parcel_count` (Integer, NOT NULL)
+- `unit_price_sum` (BigInteger, NOT NULL)
+- `assessed_total_price` (BigInteger, NOT NULL)
+- `created_at` (DateTime(timezone=True), NOT NULL, INDEX)
+- `updated_at` (DateTime(timezone=True), NOT NULL)
+
+### 2.7 zone_analysis_parcels
+- `id` (String(36), PK)
+- `zone_analysis_id` (String(36), FK -> `zone_analyses.id`, NOT NULL, INDEX)
+- `pnu` (String(19), NOT NULL, INDEX)
+- `jibun_address` (String(300), NOT NULL)
+- `road_address` (String(300), NOT NULL)
+- `area_sqm` (Float, NOT NULL)
+- `price_current` (BigInteger, NULL)
+- `price_year` (String(4), NULL)
+- `overlap_ratio` (Float, NOT NULL)
+- `included` (Boolean, NOT NULL)
+- `excluded_at` (DateTime(timezone=True), NULL)
+- `excluded_reason` (String(200), NULL)
+- `lat` (Float, NULL)
+- `lng` (Float, NULL)
+- `created_at` (DateTime(timezone=True), NOT NULL)
+- `updated_at` (DateTime(timezone=True), NOT NULL)
+- Unique 제약: `uq_zone_analysis_parcel` (`zone_analysis_id`, `pnu`)
+
 ## 3. 파일 저장소 구조
 - 대량조회 업로드/결과: `apps/api/storage/bulk`
 - 프로필 이미지: `apps/api/storage/profile_images`
@@ -102,12 +138,13 @@
 ## 4. 데이터 보존/삭제 정책
 - `query_logs`: 사용자 조회기록 영구 저장(회원 탈퇴 시 함께 삭제)
 - `bulk_jobs`: 사용자 작업 이력 저장(회원 탈퇴 시 파일 포함 삭제)
+- `zone_analyses`, `zone_analysis_parcels`: 구역분석 이력/상세 저장(회원 탈퇴 시 함께 삭제)
 - `email_verifications`: 인증 수명주기 테이블(만료/사용 완료 데이터 정리 권장)
 - `users`: 회원 탈퇴 시 관련 참조 데이터 정리 후 삭제
 
 ## 5. 운영 체크포인트
 1. `alembic_version`이 `head`인지 확인
-2. 필수 테이블 존재 확인: `users`, `email_verifications`, `bulk_jobs`, `query_logs`, `parcels`
+2. 필수 테이블 존재 확인: `users`, `email_verifications`, `bulk_jobs`, `query_logs`, `parcels`, `zone_analyses`, `zone_analysis_parcels`
 3. PostgreSQL 환경에서 `postgis_version()` 확인
 4. `parcels` 인덱스(`idx_parcels_geog_gist`, `idx_parcels_geom_gist`) 존재 확인
 5. 관리자 계정 시드 필요 시 `scripts/reset_db_and_seed_admin.py` 실행

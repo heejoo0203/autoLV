@@ -1,14 +1,20 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Cookie, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.map import (
     MapAddressSearchRequest,
     MapClickRequest,
     MapLandDetailsResponse,
     MapLookupResponse,
+    MapZoneAnalyzeRequest,
+    MapZoneListResponse,
+    MapZoneParcelExcludeRequest,
+    MapZoneResponse,
     MapPriceRowsResponse,
 )
+from app.services.auth_service import get_user_from_access_token
 from app.services.map_service import (
     export_map_csv,
     fetch_map_land_details,
@@ -17,8 +23,22 @@ from app.services.map_service import (
     lookup_map_by_click,
     lookup_map_by_pnu,
 )
+from app.services.map_zone_service import (
+    analyze_zone,
+    exclude_zone_parcels,
+    export_zone_csv,
+    get_zone_detail,
+    list_zone_analyses,
+)
 
 router = APIRouter(prefix="/api/v1/map", tags=["map"])
+
+
+def _get_current_user(
+    access_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    return get_user_from_access_token(db, access_token)
 
 
 @router.post("/click", response_model=MapLookupResponse)
@@ -65,3 +85,50 @@ def export_map_lookup_csv(
     db: Session = Depends(get_db),
 ):
     return export_map_csv(db=db, pnu=pnu)
+
+
+@router.post("/zones/analyze", response_model=MapZoneResponse)
+def analyze_zone_lookup(
+    payload: MapZoneAnalyzeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_get_current_user),
+) -> MapZoneResponse:
+    return analyze_zone(db=db, user_id=current_user.id, payload=payload)
+
+
+@router.get("/zones", response_model=MapZoneListResponse)
+def list_zone_lookup(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_get_current_user),
+) -> MapZoneListResponse:
+    return list_zone_analyses(db=db, user_id=current_user.id, page=page, page_size=page_size)
+
+
+@router.get("/zones/{zone_id}", response_model=MapZoneResponse)
+def get_zone_lookup(
+    zone_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_get_current_user),
+) -> MapZoneResponse:
+    return get_zone_detail(db=db, user_id=current_user.id, zone_id=zone_id)
+
+
+@router.patch("/zones/{zone_id}/parcels/exclude", response_model=MapZoneResponse)
+def exclude_zone_lookup_parcels(
+    zone_id: str,
+    payload: MapZoneParcelExcludeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_get_current_user),
+) -> MapZoneResponse:
+    return exclude_zone_parcels(db=db, user_id=current_user.id, zone_id=zone_id, payload=payload)
+
+
+@router.get("/zones/{zone_id}/export")
+def export_zone_lookup_csv(
+    zone_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_get_current_user),
+):
+    return export_zone_csv(db=db, user_id=current_user.id, zone_id=zone_id)

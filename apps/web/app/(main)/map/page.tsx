@@ -6,14 +6,24 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/auth-provider";
 import { createSearchHistoryLog, fetchSearchHistoryDetail } from "@/app/lib/history-api";
 import {
+  analyzeMapZone,
   downloadMapLookupCsv,
+  downloadMapZoneCsv,
+  excludeMapZoneParcels,
+  fetchMapZone,
   fetchMapLandDetails,
   fetchMapLookup,
   fetchMapLookupByPnu,
   fetchMapPriceRows,
   searchMapLookupByAddress,
 } from "@/app/lib/map-api";
-import type { LandResultRow, MapLandDetailsResponse, MapLookupResponse } from "@/app/lib/types";
+import type {
+  LandResultRow,
+  MapLandDetailsResponse,
+  MapLookupResponse,
+  MapZoneCoordinate,
+  MapZoneResponse,
+} from "@/app/lib/types";
 
 declare global {
   interface Window {
@@ -23,6 +33,9 @@ declare global {
         Map?: new (container: HTMLElement, options: Record<string, unknown>) => any;
         LatLng?: new (lat: number, lng: number) => any;
         Marker?: new (options: Record<string, unknown>) => any;
+        Polyline?: new (options: Record<string, unknown>) => any;
+        Polygon?: new (options: Record<string, unknown>) => any;
+        MapTypeId?: { USE_DISTRICT?: unknown };
         event: {
           addListener: (target: any, type: string, handler: (event: any) => void) => void;
         };
@@ -35,6 +48,7 @@ const CLICK_DEBOUNCE_MS = 300;
 const KAKAO_SDK_ID = "autolv-kakao-map-sdk";
 const DEFAULT_CENTER_LAT = Number(process.env.NEXT_PUBLIC_MAP_CENTER_LAT ?? "37.5662952");
 const DEFAULT_CENTER_LNG = Number(process.env.NEXT_PUBLIC_MAP_CENTER_LNG ?? "126.9779451");
+const MAX_ZONE_POINTS = 100;
 
 export default function MapPage() {
   return (
@@ -48,23 +62,36 @@ function MapPageClient() {
   const { user, openAuth } = useAuth();
   const params = useSearchParams();
   const recordId = params.get("recordId");
+  const zoneId = params.get("zoneId");
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapFrameRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const zoneLineRef = useRef<any>(null);
+  const zonePolygonRef = useRef<any>(null);
   const debounceTimerRef = useRef<number | null>(null);
   const inFlightKeyRef = useRef<string>("");
   const lastResolvedKeyRef = useRef<string>("");
   const loadedRecordIdRef = useRef<string>("");
+  const loadedZoneIdRef = useRef<string>("");
+  const modeRef = useRef<"basic" | "zone">("basic");
 
+  const [viewMode, setViewMode] = useState<"basic" | "zone">("basic");
   const [mapReady, setMapReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [addressLoading, setAddressLoading] = useState(false);
   const [yearlyLoading, setYearlyLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [zoneLoading, setZoneLoading] = useState(false);
+  const [zoneExcludeLoading, setZoneExcludeLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showDistrictOverlay, setShowDistrictOverlay] = useState(false);
   const [addressQuery, setAddressQuery] = useState("");
+  const [zoneName, setZoneName] = useState("내 구역");
+  const [zonePoints, setZonePoints] = useState<MapZoneCoordinate[]>([]);
+  const [selectedZonePnuSet, setSelectedZonePnuSet] = useState<Set<string>>(new Set());
+  const [zoneResult, setZoneResult] = useState<MapZoneResponse | null>(null);
   const [message, setMessage] = useState("지도를 클릭하면 해당 필지의 공시지가를 조회합니다.");
   const [result, setResult] = useState<MapLookupResponse | null>(null);
   const [landDetails, setLandDetails] = useState<MapLandDetailsResponse | null>(null);
@@ -85,8 +112,18 @@ function MapPageClient() {
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      clearZoneShapes();
     };
   }, []);
+
+  useEffect(() => {
+    modeRef.current = viewMode;
+    if (viewMode === "basic") {
+      setMessage("지도를 클릭하거나 좌측 상단 주소 입력으로 좌표를 조회할 수 있습니다.");
+    } else {
+      setMessage("지도를 클릭해 구역 꼭짓점을 추가한 뒤 구역 분석을 실행해 주세요.");
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -120,6 +157,10 @@ function MapPageClient() {
           const lat = Number(mouseEvent?.latLng?.getLat?.());
           const lng = Number(mouseEvent?.latLng?.getLng?.());
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+          if (modeRef.current === "zone") {
+            appendZonePoint(lat, lng);
+            return;
+          }
           scheduleLookup(lat, lng);
         });
       })
@@ -135,6 +176,7 @@ function MapPageClient() {
         window.clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
+      clearZoneShapes();
     };
   }, [isLoggedIn]);
 
@@ -169,10 +211,55 @@ function MapPageClient() {
   }, [recordId, isLoggedIn]);
 
   useEffect(() => {
+    if (!zoneId || !isLoggedIn) return;
+    if (loadedZoneIdRef.current === zoneId) return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const payload = await fetchMapZone(zoneId);
+        if (cancelled) return;
+        loadedZoneIdRef.current = zoneId;
+        setViewMode("zone");
+        setZoneResult(payload);
+        setZoneName(payload.summary.zone_name);
+        setSelectedZonePnuSet(new Set());
+        setMessage("저장된 구역 분석 결과를 불러왔습니다.");
+      } catch (error) {
+        if (cancelled) return;
+        setMessage(error instanceof Error ? error.message : "구역 분석 결과를 불러오지 못했습니다.");
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [zoneId, isLoggedIn]);
+
+  useEffect(() => {
     if (!mapReady || !result) return;
     setMarker(result.lat, result.lng);
     moveMapCenter(result.lat, result.lng);
   }, [mapReady, result]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    redrawZoneShapes();
+  }, [mapReady, zonePoints]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+    const districtType = kakaoMaps?.MapTypeId?.USE_DISTRICT;
+    if (!map || !districtType) return;
+    if (showDistrictOverlay) {
+      map.addOverlayMapTypeId?.(districtType);
+    } else {
+      map.removeOverlayMapTypeId?.(districtType);
+    }
+  }, [mapReady, showDistrictOverlay]);
 
   const scheduleLookup = (lat: number, lng: number) => {
     if (debounceTimerRef.current) {
@@ -229,6 +316,105 @@ function MapPageClient() {
     } finally {
       setAddressLoading(false);
     }
+  };
+
+  const appendZonePoint = (lat: number, lng: number) => {
+    setZonePoints((prev) => {
+      if (prev.length >= MAX_ZONE_POINTS) {
+        setMessage(`구역 좌표는 최대 ${MAX_ZONE_POINTS}개까지 추가할 수 있습니다.`);
+        return prev;
+      }
+      const next = [...prev, { lat, lng }];
+      setMessage(`구역 좌표 ${next.length}개가 설정되었습니다.`);
+      return next;
+    });
+  };
+
+  const undoZonePoint = () => {
+    setZonePoints((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.slice(0, -1);
+      if (next.length === 0) {
+        setMessage("구역 좌표가 모두 제거되었습니다.");
+      } else {
+        setMessage(`구역 좌표 ${next.length}개가 남았습니다.`);
+      }
+      return next;
+    });
+  };
+
+  const clearZonePoints = () => {
+    setZonePoints([]);
+    setZoneResult(null);
+    setSelectedZonePnuSet(new Set());
+    clearZoneShapes();
+    setMessage("구역 좌표를 초기화했습니다.");
+  };
+
+  const runZoneAnalyze = async () => {
+    if (zonePoints.length < 3) {
+      setMessage("구역 분석을 위해 최소 3개 이상의 좌표를 선택해 주세요.");
+      return;
+    }
+    const name = zoneName.trim();
+    if (!name) {
+      setMessage("구역 이름을 입력해 주세요.");
+      return;
+    }
+
+    setZoneLoading(true);
+    setMessage("구역 내 필지와 공시지가를 분석 중입니다...");
+    try {
+      const payload = await analyzeMapZone(name, zonePoints);
+      setZoneResult(payload);
+      setSelectedZonePnuSet(new Set());
+      setMessage(
+        `구역 분석 완료: 포함 ${payload.summary.parcel_count}필지, 기준연도 ${payload.summary.base_year || "-"}`
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "구역 분석에 실패했습니다.");
+    } finally {
+      setZoneLoading(false);
+    }
+  };
+
+  const runZoneExclude = async () => {
+    if (!zoneResult || selectedZonePnuSet.size === 0) {
+      return;
+    }
+    setZoneExcludeLoading(true);
+    try {
+      const payload = await excludeMapZoneParcels(zoneResult.summary.zone_id, Array.from(selectedZonePnuSet));
+      setZoneResult(payload);
+      setSelectedZonePnuSet(new Set());
+      setMessage("선택한 필지를 분석 결과에서 제외했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "필지 제외 처리에 실패했습니다.");
+    } finally {
+      setZoneExcludeLoading(false);
+    }
+  };
+
+  const runZoneDownload = async () => {
+    if (!zoneResult) return;
+    try {
+      await downloadMapZoneCsv(zoneResult.summary.zone_id);
+      setMessage("구역 분석 CSV 다운로드를 시작했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "구역 CSV 다운로드에 실패했습니다.");
+    }
+  };
+
+  const toggleZoneSelection = (pnu: string, checked: boolean) => {
+    setSelectedZonePnuSet((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(pnu);
+      } else {
+        next.delete(pnu);
+      }
+      return next;
+    });
   };
 
   const applyLookupResult = (
@@ -290,6 +476,10 @@ function MapPageClient() {
     }
   };
 
+  const toggleDistrictOverlay = () => {
+    setShowDistrictOverlay((prev) => !prev);
+  };
+
   const downloadCsv = async () => {
     if (!result?.pnu) return;
     try {
@@ -345,37 +535,132 @@ function MapPageClient() {
     }
   };
 
+  const redrawZoneShapes = () => {
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+    if (!kakaoMaps || !map) return;
+
+    clearZoneShapes();
+
+    const path = zonePoints.map((point) => new kakaoMaps.LatLng!(point.lat, point.lng));
+    if (path.length >= 2 && kakaoMaps.Polyline) {
+      zoneLineRef.current = new kakaoMaps.Polyline({
+        map,
+        path,
+        strokeWeight: 3,
+        strokeColor: "#3d7fda",
+        strokeOpacity: 0.9,
+        strokeStyle: "solid",
+      });
+    }
+
+    if (path.length >= 3 && kakaoMaps.Polygon) {
+      zonePolygonRef.current = new kakaoMaps.Polygon({
+        map,
+        path,
+        strokeWeight: 3,
+        strokeColor: "#2f6cc4",
+        strokeOpacity: 1,
+        fillColor: "#7ea9ec",
+        fillOpacity: 0.28,
+      });
+    }
+  };
+
+  const clearZoneShapes = () => {
+    if (zoneLineRef.current) {
+      zoneLineRef.current.setMap?.(null);
+      zoneLineRef.current = null;
+    }
+    if (zonePolygonRef.current) {
+      zonePolygonRef.current.setMap?.(null);
+      zonePolygonRef.current = null;
+    }
+  };
+
   return isLoggedIn ? (
     <section className="map-page">
       <div className="map-stage panel">
         <div className="map-stage-head">
           <div>
             <h2>지도조회</h2>
-            <p className="hint">지도를 클릭하거나 좌측 상단 주소 입력으로 좌표를 조회할 수 있습니다.</p>
+            <div className="map-mode-tabs">
+              <button
+                type="button"
+                className={`map-mode-tab ${viewMode === "basic" ? "active" : ""}`}
+                onClick={() => setViewMode("basic")}
+              >
+                기본 조회
+              </button>
+              <button
+                type="button"
+                className={`map-mode-tab ${viewMode === "zone" ? "active" : ""}`}
+                onClick={() => setViewMode("zone")}
+              >
+                구역 조회
+              </button>
+            </div>
+            <p className="hint">
+              {viewMode === "basic"
+                ? "지도를 클릭하거나 좌측 상단 주소 입력으로 좌표를 조회할 수 있습니다."
+                : "지도를 클릭해 구역을 그리고 분석하면 90% 이상 포함 필지 목록/합계를 계산합니다."}
+            </p>
           </div>
-          <button type="button" className="map-ghost-btn" onClick={() => void toggleFullscreen()}>
-            {isFullscreen ? "전체화면 종료" : "전체화면"}
-          </button>
+          <div className="map-head-actions">
+            <button type="button" className={`map-ghost-btn ${showDistrictOverlay ? "active" : ""}`} onClick={toggleDistrictOverlay}>
+              {showDistrictOverlay ? "지적도 끄기" : "지적도 보기"}
+            </button>
+            <button type="button" className="map-ghost-btn" onClick={() => void toggleFullscreen()}>
+              {isFullscreen ? "전체화면 종료" : "전체화면"}
+            </button>
+          </div>
         </div>
 
         <div ref={mapFrameRef} className={`map-shell ${isFullscreen ? "fullscreen" : ""}`}>
-          <form
-            className="map-overlay-search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void runAddressSearch();
-            }}
-          >
-            <input
-              className="map-address-input"
-              value={addressQuery}
-              onChange={(event) => setAddressQuery(event.target.value)}
-              placeholder="주소 입력 (예: 서울특별시 강남구 개포동 12-3)"
-            />
-            <button type="submit" className="map-overlay-btn" disabled={addressLoading || loading || !mapReady}>
-              {addressLoading ? "조회 중..." : "주소 조회"}
-            </button>
-          </form>
+          {viewMode === "basic" ? (
+            <form
+              className="map-overlay-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void runAddressSearch();
+              }}
+            >
+              <input
+                className="map-address-input"
+                value={addressQuery}
+                onChange={(event) => setAddressQuery(event.target.value)}
+                placeholder="주소 입력 (예: 서울특별시 강남구 개포동 12-3)"
+              />
+              <button type="submit" className="map-overlay-btn" disabled={addressLoading || loading || !mapReady}>
+                {addressLoading ? "조회 중..." : "주소 조회"}
+              </button>
+            </form>
+          ) : (
+            <div className="map-overlay-zone">
+              <input
+                className="map-address-input"
+                value={zoneName}
+                onChange={(event) => setZoneName(event.target.value)}
+                placeholder="구역 이름"
+              />
+              <div className="map-zone-tools">
+                <button type="button" className="map-overlay-btn" onClick={undoZonePoint} disabled={zonePoints.length === 0 || zoneLoading}>
+                  되돌리기
+                </button>
+                <button type="button" className="map-overlay-btn" onClick={clearZonePoints} disabled={zoneLoading}>
+                  초기화
+                </button>
+                <button
+                  type="button"
+                  className="map-overlay-btn map-overlay-btn-strong"
+                  onClick={() => void runZoneAnalyze()}
+                  disabled={zoneLoading || zonePoints.length < 3}
+                >
+                  {zoneLoading ? "분석 중..." : `구역 분석 (${zonePoints.length})`}
+                </button>
+              </div>
+            </div>
+          )}
           <div ref={mapContainerRef} className="map-canvas" />
         </div>
       </div>
@@ -383,67 +668,101 @@ function MapPageClient() {
       <section className="map-result panel">
         <div className="map-result-head">
           <h2>조회 결과</h2>
-          <button className="btn-primary" onClick={() => void downloadCsv()} disabled={!result?.pnu}>
-            CSV 내보내기
-          </button>
-        </div>
-        <p className="hint">{loading ? "조회 중입니다..." : message}</p>
-
-        {!result ? (
-          <div className="map-empty">지도를 클릭해 필지 정보를 조회해 주세요.</div>
-        ) : (
-          <>
-            <div className="map-metrics">
-              <MetricCard label="지번" value={result.jibun_address || result.address_summary || "-"} />
-              <MetricCard label="도로명 주소" value={result.road_address || "-"} />
-              <MetricCard label="현재 공시지가(원/㎡)" value={formatNumber(result.price_current)} />
-              <MetricCard label="전년도 공시지가(원/㎡)" value={formatNumber(result.price_previous)} />
-              <MetricCard label="증감률(%)" value={formatRate(result.growth_rate)} />
-              <MetricCard label="면적(㎡)" value={formatArea(result.area)} />
-              <MetricCard label="면적×단가(원)" value={formatNumber(result.estimated_total_price)} />
-              <MetricCard
-                label={`인근 평균(${result.nearby_radius_m}m, 원/㎡)`}
-                value={formatNumber(result.nearby_avg_price)}
-              />
-            </div>
-
-            <div className="hint">
-              좌표: {result.lat.toFixed(6)}, {result.lng.toFixed(6)} / 데이터 소스: {result.cache_hit ? "DB 캐시" : "실시간"}
-            </div>
-
+          {viewMode === "basic" ? (
+            <button className="btn-primary" onClick={() => void downloadCsv()} disabled={!result?.pnu}>
+              CSV 내보내기
+            </button>
+          ) : (
             <div className="map-actions-row">
               <button
                 type="button"
-                className="map-inline-action"
-                onClick={() => void loadLandDetails()}
-                disabled={detailLoading}
+                className="map-inline-action danger"
+                onClick={() => void runZoneExclude()}
+                disabled={!zoneResult || selectedZonePnuSet.size === 0 || zoneExcludeLoading}
               >
-                {detailLoading ? "조회 중..." : "토지특성 상세 조회"}
+                {zoneExcludeLoading ? "처리 중..." : `선택 삭제 (${selectedZonePnuSet.size})`}
               </button>
-              {!result.road_address ? (
-                <span className="hint">
-                  이 필지는 도로명주소가 부여되지 않았거나 VWorld 역지오코딩에서 제공되지 않을 수 있습니다.
-                </span>
-              ) : null}
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void runZoneDownload()}
+                disabled={!zoneResult}
+              >
+                CSV 내보내기
+              </button>
             </div>
+          )}
+        </div>
+        <p className="hint">{loading ? "조회 중입니다..." : message}</p>
 
-            {landDetails ? (
-              <div className="map-metrics map-detail-grid">
-                <MetricCard label="상세 기준연도" value={landDetails.stdr_year || "-"} />
-                <MetricCard label="지목" value={landDetails.land_category_name || "-"} />
-                <MetricCard label="용도지역명" value={landDetails.purpose_area_name || "-"} />
-                <MetricCard label="용도지구명" value={landDetails.purpose_district_name || "-"} />
-                <MetricCard label="토지면적(㎡)" value={formatArea(landDetails.area)} />
+        {viewMode === "basic" ? (
+          !result ? (
+            <div className="map-empty">지도를 클릭해 필지 정보를 조회해 주세요.</div>
+          ) : (
+            <>
+              <div className="map-metrics">
+                <MetricCard label="지번" value={result.jibun_address || result.address_summary || "-"} />
+                <MetricCard label="도로명 주소" value={result.road_address || "-"} />
+                <MetricCard label="현재 공시지가(원/㎡)" value={formatNumber(result.price_current)} />
+                <MetricCard label="전년도 공시지가(원/㎡)" value={formatNumber(result.price_previous)} />
+                <MetricCard label="증감률(%)" value={formatRate(result.growth_rate)} />
+                <MetricCard label="면적(㎡)" value={formatArea(result.area)} />
+                <MetricCard label="면적×단가(원)" value={formatNumber(result.estimated_total_price)} />
+                <MetricCard
+                  label={`인근 평균(${result.nearby_radius_m}m, 원/㎡)`}
+                  value={formatNumber(result.nearby_avg_price)}
+                />
               </div>
-            ) : null}
 
-            <MapRowsTable
-              rows={result.rows}
-              cacheHit={result.cache_hit}
-              loading={yearlyLoading}
-              onLoadRows={() => void loadYearlyRows()}
-            />
-          </>
+              <div className="hint">
+                좌표: {result.lat.toFixed(6)}, {result.lng.toFixed(6)} / 데이터 소스: {result.cache_hit ? "DB 캐시" : "실시간"}
+              </div>
+
+              <div className="map-actions-row">
+                <button
+                  type="button"
+                  className="map-inline-action"
+                  onClick={() => void loadLandDetails()}
+                  disabled={detailLoading}
+                >
+                  {detailLoading ? "조회 중..." : "토지특성 상세 조회"}
+                </button>
+                {!result.road_address ? (
+                  <span className="hint">
+                    이 필지는 도로명주소가 부여되지 않았거나 VWorld 역지오코딩에서 제공되지 않을 수 있습니다.
+                  </span>
+                ) : null}
+              </div>
+
+              {landDetails ? (
+                <div className="map-metrics map-detail-grid">
+                  <MetricCard label="상세 기준연도" value={landDetails.stdr_year || "-"} />
+                  <MetricCard label="지목" value={landDetails.land_category_name || "-"} />
+                  <MetricCard label="용도지역명" value={landDetails.purpose_area_name || "-"} />
+                  <MetricCard label="용도지구명" value={landDetails.purpose_district_name || "-"} />
+                  <MetricCard label="토지면적(㎡)" value={formatArea(landDetails.area)} />
+                </div>
+              ) : null}
+
+              <MapRowsTable
+                rows={result.rows}
+                cacheHit={result.cache_hit}
+                loading={yearlyLoading}
+                onLoadRows={() => void loadYearlyRows()}
+              />
+            </>
+          )
+        ) : (
+          <ZoneResultTable
+            zoneResult={zoneResult}
+            selectedPnuSet={selectedZonePnuSet}
+            onSelect={(pnu, checked) => toggleZoneSelection(pnu, checked)}
+            onRowClick={(lat, lng) => {
+              if (lat === null || lng === null) return;
+              setMarker(lat, lng);
+              moveMapCenter(lat, lng);
+            }}
+          />
         )}
       </section>
     </section>
@@ -464,6 +783,77 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <div className="metric-label">{label}</div>
       <div className="metric-value">{value}</div>
     </div>
+  );
+}
+
+function ZoneResultTable({
+  zoneResult,
+  selectedPnuSet,
+  onSelect,
+  onRowClick,
+}: {
+  zoneResult: MapZoneResponse | null;
+  selectedPnuSet: Set<string>;
+  onSelect: (pnu: string, checked: boolean) => void;
+  onRowClick: (lat: number | null, lng: number | null) => void;
+}) {
+  if (!zoneResult) {
+    return <div className="map-empty">구역 좌표를 선택하고 `구역 분석`을 실행해 주세요.</div>;
+  }
+
+  const { summary, parcels } = zoneResult;
+  return (
+    <>
+      <div className="map-metrics">
+        <MetricCard label="구역명" value={summary.zone_name} />
+        <MetricCard label="기준연도(최신)" value={summary.base_year || "-"} />
+        <MetricCard label="구역 면적(㎡)" value={formatArea(summary.zone_area_sqm)} />
+        <MetricCard label="포함 필지 수" value={formatNumber(summary.parcel_count)} />
+        <MetricCard label="계산 반영 필지 수" value={formatNumber(summary.counted_parcel_count)} />
+        <MetricCard label="수동 제외 필지 수" value={formatNumber(summary.excluded_parcel_count)} />
+        <MetricCard label="필지 단가 합계(원/㎡)" value={formatNumber(summary.unit_price_sum)} />
+        <MetricCard label="총 공시지가 합계(원)" value={formatNumber(summary.assessed_total_price)} />
+      </div>
+      <table className="data-table map-zone-table">
+        <thead>
+          <tr>
+            <th className="center">선택</th>
+            <th>지번 주소</th>
+            <th>도로명 주소</th>
+            <th>PNU</th>
+            <th className="right">면적(㎡)</th>
+            <th className="right">공시지가(원/㎡)</th>
+            <th className="center">연도</th>
+            <th className="right">포함비율(%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {parcels.map((row) => {
+            const selected = selectedPnuSet.has(row.pnu);
+            return (
+              <tr key={row.pnu} className={!row.included ? "excluded" : ""} onClick={() => onRowClick(row.lat, row.lng)}>
+                <td className="center" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    disabled={!row.included}
+                    onChange={(event) => onSelect(row.pnu, event.target.checked)}
+                    aria-label={`필지 선택 ${row.pnu}`}
+                  />
+                </td>
+                <td>{row.jibun_address || "-"}</td>
+                <td>{row.road_address || "-"}</td>
+                <td>{row.pnu}</td>
+                <td className="right">{formatArea(row.area_sqm)}</td>
+                <td className="right">{formatNumber(row.price_current)}</td>
+                <td className="center">{row.price_year || "-"}</td>
+                <td className="right">{(row.overlap_ratio * 100).toFixed(2)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </>
   );
 }
 

@@ -487,6 +487,91 @@
 설명:
 - CSV 다운로드 (`pnu, area, current_price, previous_price, growth_rate`)
 
+### POST `/map/zones/analyze`
+설명:
+- 지도에서 그린 폴리곤 영역을 분석해 포함 필지(90% 이상) 목록과 최신연도 기준 합계를 반환
+- 인증: 로그인 필수(HttpOnly 쿠키)
+
+요청:
+```json
+{
+  "zone_name": "한강 북측 분석구역",
+  "coordinates": [
+    { "lat": 37.57, "lng": 126.96 },
+    { "lat": 37.57, "lng": 126.98 },
+    { "lat": 37.56, "lng": 126.98 },
+    { "lat": 37.56, "lng": 126.96 }
+  ],
+  "overlap_threshold": 0.9
+}
+```
+
+응답 200:
+```json
+{
+  "summary": {
+    "zone_id": "zone-uuid",
+    "zone_name": "한강 북측 분석구역",
+    "base_year": "2025",
+    "overlap_threshold": 0.9,
+    "zone_area_sqm": 18234.3,
+    "parcel_count": 128,
+    "counted_parcel_count": 126,
+    "excluded_parcel_count": 0,
+    "unit_price_sum": 128900000,
+    "assessed_total_price": 923456700000,
+    "created_at": "2026-03-06T01:23:45+00:00",
+    "updated_at": "2026-03-06T01:23:45+00:00"
+  },
+  "parcels": [
+    {
+      "pnu": "1111010100100010000",
+      "jibun_address": "서울특별시 종로구 청운동 1",
+      "road_address": "",
+      "area_sqm": 123.4,
+      "price_current": 12000000,
+      "price_year": "2025",
+      "overlap_ratio": 0.9543,
+      "included": true,
+      "counted_in_summary": true,
+      "lat": 37.58,
+      "lng": 126.97
+    }
+  ]
+}
+```
+
+### GET `/map/zones`
+설명:
+- 로그인 사용자의 구역 분석 이력 목록 조회
+- 인증: 로그인 필수(HttpOnly 쿠키)
+
+쿼리:
+- `page`, `page_size`
+
+### GET `/map/zones/{zone_id}`
+설명:
+- 구역 분석 상세 조회(요약 + 필지 목록)
+- 인증: 로그인 필수(HttpOnly 쿠키)
+
+### PATCH `/map/zones/{zone_id}/parcels/exclude`
+설명:
+- 분석 결과에서 선택한 필지를 수동 제외하고 요약 재계산
+- 인증: 로그인 필수(HttpOnly 쿠키)
+
+요청:
+```json
+{
+  "pnu_list": ["1111010100100010000", "1111010100100020000"],
+  "reason": "사용자 수동 제외"
+}
+```
+
+### GET `/map/zones/{zone_id}/export`
+설명:
+- 구역 분석 결과 CSV 다운로드
+- 인증: 로그인 필수(HttpOnly 쿠키)
+
 ## 5. 조회기록 API (`/history`)
 인증: 로그인 필수
 
@@ -556,4 +641,5 @@ FastAPI 기본 `detail` 형식 사용:
 - 개별조회: `VWORLD_UNREACHABLE`, `VWORLD_HTTP_ERROR`, `VWORLD_DIRECT_AND_PROXY_FAILED`, `ROAD_FILE_NOT_FOUND`
 - 파일조회: `BULK_FILE_INVALID`, `BULK_ROW_LIMIT_EXCEEDED`, `BULK_JOB_NOT_FOUND`, `BULK_JOB_NOT_READY`
 - 지도조회: `INVALID_COORDINATE`, `INVALID_PNU`, `MAP_ADDRESS_NOT_FOUND`, `PARCEL_NOT_FOUND`
+- 구역조회: `POSTGIS_REQUIRED`, `ZONE_TOO_FEW_POINTS`, `ZONE_TOO_MANY_POINTS`, `ZONE_AREA_TOO_LARGE`, `INVALID_ZONE_GEOMETRY`, `ZONE_ANALYSIS_NOT_FOUND`
 - 조회기록: `QUERY_LOG_NOT_FOUND`

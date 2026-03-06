@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     redis_pnu_ttl_seconds: int = Field(default=86400, alias="REDIS_PNU_TTL_SECONDS")
     map_price_cache_ttl_seconds: int = Field(default=86400, alias="MAP_PRICE_CACHE_TTL_SECONDS")
     map_nearby_radius_m: int = Field(default=200, alias="MAP_NEARBY_RADIUS_M")
+    map_zone_overlap_threshold: float = Field(default=0.9, alias="MAP_ZONE_OVERLAP_THRESHOLD")
+    map_zone_max_vertices: int = Field(default=100, alias="MAP_ZONE_MAX_VERTICES")
+    map_zone_max_area_sqm: float = Field(default=5_000_000, alias="MAP_ZONE_MAX_AREA_SQM")
+    map_zone_query_timeout_ms: int = Field(default=10_000, alias="MAP_ZONE_QUERY_TIMEOUT_MS")
+    map_zone_vworld_page_size: int = Field(default=1000, alias="MAP_ZONE_VWORLD_PAGE_SIZE")
+    map_zone_vworld_max_pages: int = Field(default=20, alias="MAP_ZONE_VWORLD_MAX_PAGES")
 
     email_verification_exp_minutes: int = Field(default=10, alias="EMAIL_VERIFICATION_EXP_MINUTES")
     email_verification_max_attempts: int = Field(default=5, alias="EMAIL_VERIFICATION_MAX_ATTEMPTS")

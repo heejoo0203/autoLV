@@ -141,3 +141,42 @@ export type MapLandDetailsResponse = {
   purpose_area_name: string | null;
   purpose_district_name: string | null;
 };
+
+export type MapZoneCoordinate = {
+  lat: number;
+  lng: number;
+};
+
+export type MapZoneParcelItem = {
+  pnu: string;
+  jibun_address: string;
+  road_address: string;
+  area_sqm: number;
+  price_current: number | null;
+  price_year: string | null;
+  overlap_ratio: number;
+  included: boolean;
+  counted_in_summary: boolean;
+  lat: number | null;
+  lng: number | null;
+};
+
+export type MapZoneSummary = {
+  zone_id: string;
+  zone_name: string;
+  base_year: string | null;
+  overlap_threshold: number;
+  zone_area_sqm: number;
+  parcel_count: number;
+  counted_parcel_count: number;
+  excluded_parcel_count: number;
+  unit_price_sum: number;
+  assessed_total_price: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MapZoneResponse = {
+  summary: MapZoneSummary;
+  parcels: MapZoneParcelItem[];
+};

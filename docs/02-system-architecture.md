@@ -84,7 +84,20 @@
 5. `/map/export` CSV 다운로드
 6. 결과를 `/history/query-logs`(search_type=`map`)에 저장
 
-### 3.5 조회기록
+### 3.5 구역조회(폴리곤)
+1. 로그인 사용자가 지도조회 화면의 `구역 조회` 모드에서 폴리곤 꼭짓점을 선택
+2. `/map/zones/analyze` 호출 (구역명 + 좌표 + 포함 임계치)
+3. API 내부 처리:
+   - 폴리곤 정규화/검증(`ST_IsValid`)
+   - 면적 제한 검사(`ST_Area`)
+   - VWorld 지적도 피처 조회(`/req/data`, `LP_PA_CBND_BUBUN`)
+   - `parcels` 지오메트리 업서트
+   - PostGIS 교차 계산(`ST_Intersection`), 90% 이상 포함 필지 판정
+   - 최신연도 기준 합계/면적 기반 금액 집계
+4. 결과를 `zone_analyses`, `zone_analysis_parcels`에 영속 저장
+5. 프론트에서 요약 카드 + 필지 목록 + 선택 제외 + CSV 다운로드 제공
+
+### 3.6 조회기록
 1. `/history/query-logs`로 최신순 목록 조회
 2. 유형/시도/시군구 필터 및 정렬(`created_at`, `address_summary`, `search_type`, `result_count`)
 3. 항목 클릭 시:
@@ -101,6 +114,6 @@
 ![시스템 아키텍처](./architecture.svg)
 
 ## 6. 다음 단계(TO-BE)
-- 지도 폴리곤 집계(`ST_Intersects`) API 추가
-- 운영 지표 수집(에러율, VWorld 실패율, 프록시 사용률)
+- 구역조회 이력 페이지(구역명 검색/재열람/비교) 추가
+- 운영 지표 수집(에러율, VWorld 실패율, 프록시 사용률, 구역분석 성공률)
 - 소셜 로그인(네이버/카카오)

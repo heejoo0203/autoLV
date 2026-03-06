@@ -1,6 +1,12 @@
 "use client";
 
-import type { MapLandDetailsResponse, MapLookupResponse, MapPriceRowsResponse } from "@/app/lib/types";
+import type {
+  MapLandDetailsResponse,
+  MapLookupResponse,
+  MapPriceRowsResponse,
+  MapZoneCoordinate,
+  MapZoneResponse,
+} from "@/app/lib/types";
 
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
@@ -69,6 +75,63 @@ export async function downloadMapLookupCsv(pnu: string): Promise<void> {
   }
   const blob = await res.blob();
   triggerDownload(blob, `parcel_${pnu}.csv`);
+}
+
+export async function analyzeMapZone(
+  zoneName: string,
+  coordinates: MapZoneCoordinate[],
+  overlapThreshold?: number,
+): Promise<MapZoneResponse> {
+  const res = await apiFetch("/api/v1/map/zones/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      zone_name: zoneName,
+      coordinates,
+      overlap_threshold: overlapThreshold,
+    }),
+  });
+  const payload = (await safeJson(res)) as MapZoneResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "구역 분석에 실패했습니다."));
+  }
+  return payload as MapZoneResponse;
+}
+
+export async function fetchMapZone(zoneId: string): Promise<MapZoneResponse> {
+  const res = await apiFetch(`/api/v1/map/zones/${encodeURIComponent(zoneId)}`, { method: "GET" });
+  const payload = (await safeJson(res)) as MapZoneResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "구역 분석 결과를 불러오지 못했습니다."));
+  }
+  return payload as MapZoneResponse;
+}
+
+export async function excludeMapZoneParcels(
+  zoneId: string,
+  pnuList: string[],
+  reason?: string,
+): Promise<MapZoneResponse> {
+  const res = await apiFetch(`/api/v1/map/zones/${encodeURIComponent(zoneId)}/parcels/exclude`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pnu_list: pnuList, reason }),
+  });
+  const payload = (await safeJson(res)) as MapZoneResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "필지 제외 처리에 실패했습니다."));
+  }
+  return payload as MapZoneResponse;
+}
+
+export async function downloadMapZoneCsv(zoneId: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/map/zones/${encodeURIComponent(zoneId)}/export`, { method: "GET" });
+  if (!res.ok) {
+    const payload = (await safeJson(res)) as { detail?: unknown };
+    throw new Error(extractError(payload, "구역 CSV 다운로드에 실패했습니다."));
+  }
+  const blob = await res.blob();
+  triggerDownload(blob, `zone_${zoneId}.csv`);
 }
 
 function triggerDownload(blob: Blob, fileName: string): void {

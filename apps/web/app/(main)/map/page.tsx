@@ -18,6 +18,7 @@ import {
   fetchMapZone,
   fetchMapZones,
   renameMapZone,
+  saveMapZone,
   searchMapLookupByAddress,
 } from "@/app/lib/map-api";
 import type {
@@ -92,9 +93,10 @@ function MapPageClient() {
   const [yearlyLoading, setYearlyLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [zoneLoading, setZoneLoading] = useState(false);
+  const [zoneSaveLoading, setZoneSaveLoading] = useState(false);
   const [zoneExcludeLoading, setZoneExcludeLoading] = useState(false);
   const [zoneListLoading, setZoneListLoading] = useState(false);
-  const [zoneLibraryOpen, setZoneLibraryOpen] = useState(false);
+  const [zoneLibraryOpen, setZoneLibraryOpen] = useState(true);
   const [zoneItemBusyId, setZoneItemBusyId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDistrictOverlay, setShowDistrictOverlay] = useState(false);
@@ -410,16 +412,42 @@ function MapPageClient() {
     try {
       const payload = await analyzeMapZone(name, zonePoints);
       applyZoneResult(payload, {
-        customMessage: `구역 분석 완료: 구역 내 필지 ${payload.summary.parcel_count}건`,
+        customMessage: `구역 분석 완료: 구역 내 필지 ${payload.summary.parcel_count}건, 저장하려면 '구역 저장'을 눌러 주세요.`,
         fitToZone: false,
         openLibrary: true,
       });
-      await loadZoneList();
     } catch (error) {
       setZoneResult(null);
       setMessage(error instanceof Error ? error.message : "구역 분석에 실패했습니다.");
     } finally {
       setZoneLoading(false);
+    }
+  };
+
+  const runZoneSave = async () => {
+    if (!zoneResult || zoneResult.summary.is_saved) {
+      return;
+    }
+    const name = zoneName.trim();
+    if (!name) {
+      setMessage("구역 이름을 입력해 주세요.");
+      return;
+    }
+
+    setZoneSaveLoading(true);
+    setMessage("구역을 저장 중입니다...");
+    try {
+      const payload = await saveMapZone(name, zonePoints, getZoneExcludedPnuList(zoneResult));
+      applyZoneResult(payload, {
+        customMessage: "구역을 저장했습니다. 저장 구역 목록에서 다시 불러올 수 있습니다.",
+        fitToZone: false,
+        openLibrary: true,
+      });
+      await loadZoneList();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "구역 저장에 실패했습니다.");
+    } finally {
+      setZoneSaveLoading(false);
     }
   };
 
@@ -429,9 +457,14 @@ function MapPageClient() {
     }
     setZoneExcludeLoading(true);
     try {
-      const payload = await excludeMapZoneParcels(zoneResult.summary.zone_id, Array.from(selectedZonePnuSet));
-      applyZoneResult(payload, { customMessage: "선택한 필지를 분석 결과에서 제외했습니다.", fitToZone: false });
-      await loadZoneList();
+      if (zoneResult.summary.is_saved && zoneResult.summary.zone_id) {
+        const payload = await excludeMapZoneParcels(zoneResult.summary.zone_id, Array.from(selectedZonePnuSet));
+        applyZoneResult(payload, { customMessage: "저장된 구역에서 선택한 필지를 제외했습니다.", fitToZone: false });
+        await loadZoneList();
+      } else {
+        const payload = applyLocalZoneExclusion(zoneResult, selectedZonePnuSet);
+        applyZoneResult(payload, { customMessage: "미리보기 결과에서 선택한 필지를 제외했습니다.", fitToZone: false });
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "필지 제외 처리에 실패했습니다.");
     } finally {
@@ -504,6 +537,10 @@ function MapPageClient() {
 
   const runZoneDownload = async () => {
     if (!zoneResult) return;
+    if (!zoneResult.summary.is_saved || !zoneResult.summary.zone_id) {
+      setMessage("구역을 저장한 뒤 CSV를 내려받을 수 있습니다.");
+      return;
+    }
     try {
       await downloadMapZoneCsv(zoneResult.summary.zone_id);
       setMessage("구역 분석 CSV 다운로드를 시작했습니다.");
@@ -550,7 +587,7 @@ function MapPageClient() {
   ) => {
     setViewMode("zone");
     setZoneResult(payload);
-    setActiveZoneId(payload.summary.zone_id);
+    setActiveZoneId(payload.summary.is_saved ? payload.summary.zone_id : null);
     setZoneName(payload.summary.zone_name);
     setZonePoints(payload.coordinates);
     setSelectedZonePnuSet(new Set());
@@ -565,6 +602,23 @@ function MapPageClient() {
         fitMapToPoints(payload.coordinates);
       }, 60);
     }
+  };
+
+  const getZoneExcludedPnuList = (payload: MapZoneResponse): string[] => {
+    return payload.parcels.filter((item) => !item.included).map((item) => item.pnu);
+  };
+
+  const applyLocalZoneExclusion = (payload: MapZoneResponse, excludedPnuSet: Set<string>): MapZoneResponse => {
+    const nextParcels = payload.parcels.map((item) =>
+      excludedPnuSet.has(item.pnu)
+        ? {
+            ...item,
+            included: false,
+            counted_in_summary: false,
+          }
+        : item,
+    );
+    return rebuildZonePreview(payload, nextParcels);
   };
 
   const openZoneParcelInBasicView = async (pnu: string) => {
@@ -759,8 +813,9 @@ function MapPageClient() {
   };
 
   return isLoggedIn ? (
-    <section className="map-page">
-      <div className="map-stage panel">
+    <section className={`map-page ${viewMode === "zone" && zoneLibraryOpen ? "with-library" : ""}`}>
+      <div className="map-main-column">
+        <div className="map-stage panel">
         <div className="map-stage-head">
           <div>
             <h2>지도조회</h2>
@@ -850,23 +905,13 @@ function MapPageClient() {
                   </button>
                 </div>
               </div>
-              <ZoneLibraryPanel
-                open={zoneLibraryOpen}
-                loading={zoneListLoading}
-                items={zoneList}
-                activeZoneId={activeZoneId}
-                busyZoneId={zoneItemBusyId}
-                onSelect={(item) => void loadZoneById(item.zone_id)}
-                onRename={(item) => void renameZoneItem(item)}
-                onDelete={(item) => void deleteZoneItem(item)}
-              />
             </>
           )}
           <div ref={mapContainerRef} className="map-canvas" />
         </div>
-      </div>
+        </div>
 
-      <section className="map-result panel">
+        <section className="map-result panel">
         <div className="map-result-head">
           <h2>조회 결과</h2>
           {viewMode === "basic" ? (
@@ -875,6 +920,13 @@ function MapPageClient() {
             </button>
           ) : (
             <div className="map-actions-row">
+              {!zoneResult?.summary.is_saved ? (
+                <button type="button" className="btn-primary" onClick={() => void runZoneSave()} disabled={!zoneResult || zoneSaveLoading}>
+                  {zoneSaveLoading ? "저장 중..." : "구역 저장"}
+                </button>
+              ) : (
+                <span className="map-save-state">저장됨</span>
+              )}
               <button
                 type="button"
                 className="map-inline-action danger"
@@ -887,7 +939,7 @@ function MapPageClient() {
                 type="button"
                 className="btn-primary"
                 onClick={() => void runZoneDownload()}
-                disabled={!zoneResult}
+                disabled={!zoneResult?.summary.is_saved}
               >
                 CSV 내보내기
               </button>
@@ -966,7 +1018,23 @@ function MapPageClient() {
             onOpenBasic={(pnu) => void openZoneParcelInBasicView(pnu)}
           />
         )}
-      </section>
+        </section>
+      </div>
+
+      {viewMode === "zone" ? (
+        <aside className={`map-sidebar ${zoneLibraryOpen ? "open" : ""}`}>
+          <ZoneLibraryPanel
+            open={zoneLibraryOpen}
+            loading={zoneListLoading}
+            items={zoneList}
+            activeZoneId={activeZoneId}
+            busyZoneId={zoneItemBusyId}
+            onSelect={(item) => void loadZoneById(item.zone_id)}
+            onRename={(item) => void renameZoneItem(item)}
+            onDelete={(item) => void deleteZoneItem(item)}
+          />
+        </aside>
+      ) : null}
     </section>
   ) : (
     <section className="panel">
@@ -1008,7 +1076,7 @@ function ZoneLibraryPanel({
   onDelete: (item: MapZoneListItem) => void;
 }) {
   return (
-    <aside className={`map-zone-library ${open ? "open" : ""}`}>
+    <div className={`map-zone-library ${open ? "open" : ""}`}>
       <div className="map-zone-library-head">
         <h3>저장된 구역</h3>
         <span>{items.length}건</span>
@@ -1053,7 +1121,7 @@ function ZoneLibraryPanel({
           })}
         </div>
       ) : null}
-    </aside>
+    </div>
   );
 }
 
@@ -1185,6 +1253,41 @@ function MapRowsTable({
       </tbody>
     </table>
   );
+}
+
+function rebuildZonePreview(zoneResult: MapZoneResponse, parcels: MapZoneResponse["parcels"]): MapZoneResponse {
+  const includedParcels = parcels.filter((item) => item.included);
+  const baseYearCandidates = includedParcels
+    .filter((item) => item.price_current !== null && item.price_year)
+    .map((item) => item.price_year as string);
+  const baseYear = baseYearCandidates.length > 0 ? baseYearCandidates.sort().at(-1) ?? null : null;
+  const countedParcels = includedParcels.filter(
+    (item) => item.price_current !== null && item.price_year !== null && item.price_year === baseYear,
+  );
+  const assessedTotalPrice = countedParcels.reduce((sum, item) => sum + (item.estimated_total_price ?? 0), 0);
+  const averageUnitPrice =
+    zoneResult.summary.zone_area_sqm > 0 ? Math.round(assessedTotalPrice / zoneResult.summary.zone_area_sqm) : null;
+
+  const nextParcels = parcels.map((item) => ({
+    ...item,
+    counted_in_summary:
+      item.included && item.price_current !== null && item.price_year !== null && item.price_year === baseYear,
+  }));
+
+  return {
+    ...zoneResult,
+    summary: {
+      ...zoneResult.summary,
+      base_year: baseYear,
+      parcel_count: includedParcels.length,
+      counted_parcel_count: countedParcels.length,
+      excluded_parcel_count: parcels.length - includedParcels.length,
+      average_unit_price: averageUnitPrice,
+      assessed_total_price: assessedTotalPrice,
+      updated_at: new Date().toISOString(),
+    },
+    parcels: nextParcels,
+  };
 }
 
 function toPointKey(lat: number, lng: number): string {

@@ -4,7 +4,6 @@ import csv
 import io
 import json
 import re
-import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -26,6 +25,7 @@ from app.schemas.map import (
     MapZoneParcelExcludeRequest,
     MapZoneParcelItem,
     MapZoneResponse,
+    MapZoneSaveRequest,
     MapZoneSummary,
     MapZoneUpdateRequest,
 )
@@ -57,53 +57,60 @@ class _ZoneParcelComputed:
     road_address: str
 
 
+@dataclass
+class _PreparedZonePreview:
+    zone_name: str
+    threshold: float
+    coordinates: list[tuple[float, float]]
+    zone_wkt: str
+    zone_area_sqm: float
+    parcels: list[_ZoneParcelComputed]
+    summary: dict[str, Any]
+    generated_at: datetime
+
+
 def analyze_zone(
     db: Session,
     *,
-    user_id: str,
     payload: MapZoneAnalyzeRequest,
 ) -> MapZoneResponse:
-    _require_postgres(db)
-    zone_name = _normalize_zone_name(payload.zone_name)
-    threshold = _resolve_overlap_threshold(payload.overlap_threshold)
-    coordinates = _normalize_polygon_coordinates(payload.coordinates)
-    zone_wkt = _coordinates_to_wkt(coordinates)
+    preview = _prepare_zone_preview(db, payload=payload)
+    return _build_zone_response(preview=preview, zone_id=None, is_saved=False)
 
-    zone_area_sqm = _calculate_zone_area(db, zone_wkt)
-    if zone_area_sqm > settings.map_zone_max_area_sqm:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "ZONE_AREA_TOO_LARGE",
-                "message": f"구역 면적은 최대 {int(settings.map_zone_max_area_sqm):,}㎡ 까지만 허용됩니다.",
-            },
-        )
 
-    _validate_zone_geometry(db, zone_wkt)
-    bbox = _calculate_bbox(coordinates)
-    feature_map = _fetch_vworld_parcel_features(bbox)
-    _upsert_parcel_geometries(db, list(feature_map.values()))
-    overlapped = _query_overlapped_parcels(db, zone_wkt=zone_wkt, threshold=threshold, pnu_list=list(feature_map.keys()))
-    parcels = _compose_zone_parcels(overlapped, feature_map)
-
-    summary = _calculate_summary(parcels)
+def save_zone_analysis(
+    db: Session,
+    *,
+    user_id: str,
+    payload: MapZoneSaveRequest,
+) -> MapZoneResponse:
+    preview = _prepare_zone_preview(
+        db,
+        payload=MapZoneAnalyzeRequest(
+            zone_name=payload.zone_name,
+            coordinates=payload.coordinates,
+            overlap_threshold=payload.overlap_threshold,
+        ),
+    )
+    excluded_pnu_set = {pnu.strip() for pnu in payload.excluded_pnu_list if pnu.strip()}
     analysis = ZoneAnalysis(
         user_id=user_id,
-        zone_name=zone_name,
-        zone_wkt=zone_wkt,
-        overlap_threshold=threshold,
-        zone_area_sqm=zone_area_sqm,
-        base_year=summary["base_year"],
-        parcel_count=summary["parcel_count"],
-        counted_parcel_count=summary["counted_parcel_count"],
-        excluded_parcel_count=summary["excluded_parcel_count"],
-        unit_price_sum=summary["unit_price_sum"],
-        assessed_total_price=summary["assessed_total_price"],
+        zone_name=preview.zone_name,
+        zone_wkt=preview.zone_wkt,
+        overlap_threshold=preview.threshold,
+        zone_area_sqm=preview.zone_area_sqm,
+        base_year=preview.summary["base_year"],
+        parcel_count=preview.summary["parcel_count"],
+        counted_parcel_count=preview.summary["counted_parcel_count"],
+        excluded_parcel_count=preview.summary["excluded_parcel_count"],
+        unit_price_sum=preview.summary["unit_price_sum"],
+        assessed_total_price=preview.summary["assessed_total_price"],
     )
     db.add(analysis)
     db.flush()
 
-    for item in parcels:
+    for item in preview.parcels:
+        included = item.pnu not in excluded_pnu_set
         db.add(
             ZoneAnalysisParcel(
                 zone_analysis_id=analysis.id,
@@ -114,12 +121,15 @@ def analyze_zone(
                 price_current=item.price_current,
                 price_year=item.price_year,
                 overlap_ratio=item.overlap_ratio,
-                included=True,
+                included=included,
+                excluded_reason=None if included else "저장 전 사용자 제외",
+                excluded_at=None if included else preview.generated_at,
                 lat=item.lat,
                 lng=item.lng,
             )
         )
 
+    _recalculate_zone_summary(db, analysis)
     db.commit()
     return get_zone_detail(db, user_id=user_id, zone_id=analysis.id)
 
@@ -156,6 +166,7 @@ def get_zone_detail(db: Session, *, user_id: str, zone_id: str) -> MapZoneRespon
     summary = MapZoneSummary(
         zone_id=analysis.id,
         zone_name=analysis.zone_name,
+        is_saved=True,
         base_year=analysis.base_year,
         overlap_threshold=round(float(analysis.overlap_threshold), 4),
         zone_area_sqm=round(float(analysis.zone_area_sqm), 2),
@@ -330,6 +341,99 @@ def export_zone_csv(db: Session, *, user_id: str, zone_id: str) -> Response:
         content=buffer.getvalue(),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _prepare_zone_preview(db: Session, *, payload: MapZoneAnalyzeRequest) -> _PreparedZonePreview:
+    _require_postgres(db)
+    zone_name = _normalize_zone_name(payload.zone_name)
+    threshold = _resolve_overlap_threshold(payload.overlap_threshold)
+    coordinates = _normalize_polygon_coordinates(payload.coordinates)
+    zone_wkt = _coordinates_to_wkt(coordinates)
+
+    zone_area_sqm = _calculate_zone_area(db, zone_wkt)
+    if zone_area_sqm > settings.map_zone_max_area_sqm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "ZONE_AREA_TOO_LARGE",
+                "message": f"구역 면적은 최대 {int(settings.map_zone_max_area_sqm):,}㎡ 까지만 허용됩니다.",
+            },
+        )
+
+    _validate_zone_geometry(db, zone_wkt)
+    bbox = _calculate_bbox(coordinates)
+    feature_map = _fetch_vworld_parcel_features(bbox)
+    _upsert_parcel_geometries(db, list(feature_map.values()))
+    overlapped = _query_overlapped_parcels(db, zone_wkt=zone_wkt, threshold=threshold, pnu_list=list(feature_map.keys()))
+    parcels = _compose_zone_parcels(overlapped, feature_map)
+    return _PreparedZonePreview(
+        zone_name=zone_name,
+        threshold=threshold,
+        coordinates=coordinates,
+        zone_wkt=zone_wkt,
+        zone_area_sqm=zone_area_sqm,
+        parcels=parcels,
+        summary=_calculate_summary(parcels),
+        generated_at=datetime.now(timezone.utc),
+    )
+
+
+def _build_zone_response(
+    *,
+    preview: _PreparedZonePreview,
+    zone_id: str | None,
+    is_saved: bool,
+    included_pnu_set: set[str] | None = None,
+) -> MapZoneResponse:
+    included_set = included_pnu_set or {item.pnu for item in preview.parcels}
+    summary_values = _calculate_summary([item for item in preview.parcels if item.pnu in included_set])
+    excluded_count = len(preview.parcels) - len(included_set)
+
+    parcels = [
+        MapZoneParcelItem(
+            pnu=item.pnu,
+            jibun_address=item.jibun_address,
+            road_address=item.road_address,
+            area_sqm=item.area_sqm,
+            price_current=item.price_current,
+            price_year=item.price_year,
+            estimated_total_price=_calculate_estimated_total_price(item.area_sqm, item.price_current),
+            overlap_ratio=round(item.overlap_ratio, 4),
+            included=item.pnu in included_set,
+            counted_in_summary=bool(
+                item.pnu in included_set
+                and item.price_current is not None
+                and item.price_year is not None
+                and item.price_year == summary_values["base_year"]
+            ),
+            lat=item.lat,
+            lng=item.lng,
+        )
+        for item in preview.parcels
+    ]
+    summary = MapZoneSummary(
+        zone_id=zone_id,
+        zone_name=preview.zone_name,
+        is_saved=is_saved,
+        base_year=summary_values["base_year"],
+        overlap_threshold=round(preview.threshold, 4),
+        zone_area_sqm=round(preview.zone_area_sqm, 2),
+        parcel_count=summary_values["parcel_count"],
+        counted_parcel_count=summary_values["counted_parcel_count"],
+        excluded_parcel_count=excluded_count,
+        average_unit_price=_calculate_average_unit_price(
+            assessed_total_price=summary_values["assessed_total_price"],
+            zone_area_sqm=float(preview.zone_area_sqm),
+        ),
+        assessed_total_price=summary_values["assessed_total_price"],
+        created_at=_to_iso(preview.generated_at),
+        updated_at=_to_iso(preview.generated_at),
+    )
+    return MapZoneResponse(
+        summary=summary,
+        coordinates=[MapCoordinate(lat=lat, lng=lng) for lng, lat in preview.coordinates[:-1]],
+        parcels=parcels,
     )
 
 

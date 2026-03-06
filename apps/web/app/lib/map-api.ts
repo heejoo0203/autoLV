@@ -100,6 +100,29 @@ export async function analyzeMapZone(
   return payload as MapZoneResponse;
 }
 
+export async function saveMapZone(
+  zoneName: string,
+  coordinates: MapZoneCoordinate[],
+  excludedPnuList: string[] = [],
+  overlapThreshold?: number,
+): Promise<MapZoneResponse> {
+  const res = await apiFetch("/api/v1/map/zones", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      zone_name: zoneName,
+      coordinates,
+      overlap_threshold: overlapThreshold,
+      excluded_pnu_list: excludedPnuList,
+    }),
+  });
+  const payload = (await safeJson(res)) as MapZoneResponse | { detail?: unknown };
+  if (!res.ok) {
+    throw new Error(extractError(payload, "구역 저장에 실패했습니다."));
+  }
+  return payload as MapZoneResponse;
+}
+
 export async function fetchMapZone(zoneId: string): Promise<MapZoneResponse> {
   const res = await apiFetch(`/api/v1/map/zones/${encodeURIComponent(zoneId)}`, { method: "GET" });
   const payload = (await safeJson(res)) as MapZoneResponse | { detail?: unknown };

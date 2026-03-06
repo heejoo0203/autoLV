@@ -68,6 +68,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const featuresActive = pathname === "/features";
   const historyActive = pathname === "/history";
   const myPageActive = pathname === "/mypage";
+  const isMapPage = pathname === "/map";
 
   return (
     <div className="app-shell">
@@ -154,7 +155,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
       </header>
 
-      <main className="content-wrap">{children}</main>
+      <main className={`content-wrap ${isMapPage ? "content-wrap-wide" : ""}`}>{children}</main>
       <footer className="site-footer">
         <Link href="/features">기능설명</Link>
         <span>·</span>

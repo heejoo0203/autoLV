@@ -55,6 +55,10 @@ class MapZoneAnalyzeRequest(BaseModel):
     overlap_threshold: float | None = Field(default=None, ge=0.5, le=1.0, description="필지 포함 비율 임계치")
 
 
+class MapZoneSaveRequest(MapZoneAnalyzeRequest):
+    excluded_pnu_list: list[str] = Field(default_factory=list, description="저장 시 제외할 PNU 목록")
+
+
 class MapZoneParcelExcludeRequest(BaseModel):
     pnu_list: list[str] = Field(min_length=1, description="분석 결과에서 제외할 PNU 목록")
     reason: str | None = Field(default=None, max_length=200)
@@ -80,8 +84,9 @@ class MapZoneParcelItem(BaseModel):
 
 
 class MapZoneSummary(BaseModel):
-    zone_id: str
+    zone_id: str | None
     zone_name: str
+    is_saved: bool
     base_year: str | None
     overlap_threshold: float
     zone_area_sqm: float

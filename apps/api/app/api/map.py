@@ -13,6 +13,7 @@ from app.schemas.map import (
     MapZoneListResponse,
     MapZoneParcelExcludeRequest,
     MapZoneResponse,
+    MapZoneSaveRequest,
     MapZoneUpdateRequest,
     MapPriceRowsResponse,
 )
@@ -32,6 +33,7 @@ from app.services.map_zone_service import (
     export_zone_csv,
     get_zone_detail,
     list_zone_analyses,
+    save_zone_analysis,
     update_zone_name,
 )
 
@@ -95,9 +97,18 @@ def export_map_lookup_csv(
 def analyze_zone_lookup(
     payload: MapZoneAnalyzeRequest,
     db: Session = Depends(get_db),
+    _current_user: User = Depends(_get_current_user),
+) -> MapZoneResponse:
+    return analyze_zone(db=db, payload=payload)
+
+
+@router.post("/zones", response_model=MapZoneResponse)
+def save_zone_lookup(
+    payload: MapZoneSaveRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(_get_current_user),
 ) -> MapZoneResponse:
-    return analyze_zone(db=db, user_id=current_user.id, payload=payload)
+    return save_zone_analysis(db=db, user_id=current_user.id, payload=payload)
 
 
 @router.get("/zones", response_model=MapZoneListResponse)

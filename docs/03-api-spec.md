@@ -491,6 +491,7 @@
 설명:
 - 지도에서 그린 폴리곤 영역을 분석해 포함 필지(90% 이상) 목록과 최신연도 기준 합계를 반환
 - 인증: 로그인 필수(HttpOnly 쿠키)
+- 저장 전 미리보기 응답이며, 이 호출만으로는 DB에 저장되지 않는다.
 
 요청:
 ```json
@@ -510,8 +511,9 @@
 ```json
 {
   "summary": {
-    "zone_id": "zone-uuid",
+    "zone_id": null,
     "zone_name": "한강 북측 분석구역",
+    "is_saved": false,
     "base_year": "2025",
     "overlap_threshold": 0.9,
     "zone_area_sqm": 18234.3,
@@ -545,6 +547,43 @@
       "lng": 126.97
     }
   ]
+}
+```
+
+### POST `/map/zones`
+설명:
+- 구역 분석 미리보기 결과를 사용자가 명시적으로 저장할 때 호출
+- 저장 시 제외할 필지 목록을 함께 보낼 수 있다.
+- 인증: 로그인 필수(HttpOnly 쿠키)
+
+요청:
+```json
+{
+  "zone_name": "한강 북측 분석구역",
+  "coordinates": [
+    { "lat": 37.57, "lng": 126.96 },
+    { "lat": 37.571, "lng": 126.967 },
+    { "lat": 37.566, "lng": 126.972 }
+  ],
+  "overlap_threshold": 0.9,
+  "excluded_pnu_list": ["1111010100100010000"]
+}
+```
+
+응답 200:
+```json
+{
+  "summary": {
+    "zone_id": "zone-uuid",
+    "zone_name": "한강 북측 분석구역",
+    "is_saved": true
+  },
+  "coordinates": [
+    { "lat": 37.57, "lng": 126.96 },
+    { "lat": 37.571, "lng": 126.967 },
+    { "lat": 37.566, "lng": 126.972 }
+  ],
+  "parcels": []
 }
 ```
 

@@ -163,8 +163,9 @@ export type MapZoneParcelItem = {
 };
 
 export type MapZoneSummary = {
-  zone_id: string;
+  zone_id: string | null;
   zone_name: string;
+  is_saved: boolean;
   base_year: string | null;
   overlap_threshold: number;
   zone_area_sqm: number;

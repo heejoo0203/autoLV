@@ -516,7 +516,7 @@
     "is_saved": false,
     "base_year": "2025",
     "overlap_threshold": 0.9,
-    "zone_area_sqm": 18234.3,
+    "zone_area_sqm": 721.13,
     "parcel_count": 128,
     "counted_parcel_count": 126,
     "excluded_parcel_count": 0,
@@ -536,6 +536,9 @@
       "pnu": "1111010100100010000",
       "jibun_address": "서울특별시 종로구 청운동 1",
       "road_address": "",
+      "land_category_name": "대",
+      "purpose_area_name": "제2종일반주거지역",
+      "geometry_geojson": "{\"type\":\"MultiPolygon\",\"coordinates\":[...]}",
       "area_sqm": 123.4,
       "price_current": 12000000,
       "estimated_total_price": 1480800000,
@@ -549,6 +552,10 @@
   ]
 }
 ```
+
+비고:
+- `summary.zone_area_sqm`는 사용자가 그린 폴리곤 면적이 아니라, 90% 포함 기준을 통과한 포함 필지의 `area_sqm` 합계다.
+- `parcels[].geometry_geojson`는 지도에서 포함 필지를 별도 색상으로 강조하기 위한 도형 데이터다.
 
 ### POST `/map/zones`
 설명:

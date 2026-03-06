@@ -158,6 +158,9 @@ export type MapZoneParcelItem = {
   pnu: string;
   jibun_address: string;
   road_address: string;
+  land_category_name: string | null;
+  purpose_area_name: string | null;
+  geometry_geojson: string | null;
   area_sqm: number;
   price_current: number | null;
   price_year: string | null;

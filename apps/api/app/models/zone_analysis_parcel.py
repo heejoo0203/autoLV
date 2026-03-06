@@ -21,6 +21,8 @@ class ZoneAnalysisParcel(Base):
     pnu: Mapped[str] = mapped_column(String(19), nullable=False, index=True)
     jibun_address: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     road_address: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    land_category_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    purpose_area_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     area_sqm: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     price_current: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     price_year: Mapped[str | None] = mapped_column(String(4), nullable=True)

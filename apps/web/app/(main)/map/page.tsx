@@ -79,6 +79,7 @@ function MapPageClient() {
   const zoneLineRef = useRef<any>(null);
   const zonePolygonRef = useRef<any>(null);
   const zonePointOverlaysRef = useRef<any[]>([]);
+  const zoneParcelPolygonsRef = useRef<any[]>([]);
   const debounceTimerRef = useRef<number | null>(null);
   const inFlightKeyRef = useRef<string>("");
   const lastResolvedKeyRef = useRef<string>("");
@@ -128,6 +129,7 @@ function MapPageClient() {
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
       clearZoneShapes();
+      clearZoneParcelHighlights();
     };
   }, []);
 
@@ -197,6 +199,7 @@ function MapPageClient() {
         debounceTimerRef.current = null;
       }
       clearZoneShapes();
+      clearZoneParcelHighlights();
     };
   }, [isLoggedIn]);
 
@@ -266,8 +269,21 @@ function MapPageClient() {
 
   useEffect(() => {
     if (!mapReady) return;
+    if (viewMode !== "zone") {
+      clearZoneShapes();
+      return;
+    }
     redrawZoneShapes();
-  }, [mapReady, zonePoints]);
+  }, [mapReady, viewMode, zonePoints]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    if (viewMode !== "zone") {
+      clearZoneParcelHighlights();
+      return;
+    }
+    redrawZoneParcelHighlights();
+  }, [mapReady, viewMode, zoneResult]);
 
   useEffect(() => {
     if (!mapReady || !activeZoneId || !zoneResult?.coordinates?.length) return;
@@ -797,6 +813,36 @@ function MapPageClient() {
     }
   };
 
+  const redrawZoneParcelHighlights = () => {
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+    if (!kakaoMaps || !map || !kakaoMaps.Polygon || !kakaoMaps.LatLng || !zoneResult) {
+      clearZoneParcelHighlights();
+      return;
+    }
+
+    clearZoneParcelHighlights();
+
+    for (const parcel of zoneResult.parcels) {
+      if (!parcel.included || !parcel.geometry_geojson) continue;
+      const paths = parseParcelPolygonPaths(parcel.geometry_geojson, kakaoMaps);
+      for (const path of paths) {
+        const polygon = new kakaoMaps.Polygon({
+          map,
+          path,
+          strokeWeight: 2,
+          strokeColor: "#1656a8",
+          strokeOpacity: 0.95,
+          strokeStyle: "solid",
+          fillColor: "#4d91f0",
+          fillOpacity: 0.42,
+        });
+        polygon.setMap?.(map);
+        zoneParcelPolygonsRef.current.push(polygon);
+      }
+    }
+  };
+
   const clearZoneShapes = () => {
     if (zoneLineRef.current) {
       zoneLineRef.current.setMap?.(null);
@@ -810,6 +856,13 @@ function MapPageClient() {
       overlay?.setMap?.(null);
     }
     zonePointOverlaysRef.current = [];
+  };
+
+  const clearZoneParcelHighlights = () => {
+    for (const polygon of zoneParcelPolygonsRef.current) {
+      polygon?.setMap?.(null);
+    }
+    zoneParcelPolygonsRef.current = [];
   };
 
   return isLoggedIn ? (
@@ -1154,13 +1207,14 @@ function ZoneResultTable({
         <MetricCard label="평균 공시지가(원/㎡)" value={formatNumber(summary.average_unit_price)} />
         <MetricCard label="총 공시지가 합계(원)" value={formatNumber(summary.assessed_total_price)} />
       </div>
-      <p className="hint">필지 포함 기준: 구역 내부 {overlapPercent}% 이상 포함된 경우만 집계합니다.</p>
+      <p className="hint">필지 포함 기준: 구역 내부 {overlapPercent}% 이상 포함된 경우만 집계하며, 계산 반영 필지는 지도에서 진하게 표시합니다.</p>
       <table className="data-table map-zone-table">
         <thead>
           <tr>
             <th className="center">선택</th>
             <th>지번 주소</th>
-            <th>도로명 주소</th>
+            <th className="center">지목</th>
+            <th className="center">용도지역명</th>
             <th className="right">면적(㎡)</th>
             <th className="right">공시지가(원/㎡)</th>
             <th className="right">면적×공시지가</th>
@@ -1186,7 +1240,8 @@ function ZoneResultTable({
                     {row.jibun_address || "-"}
                   </button>
                 </td>
-                <td>{row.road_address || "-"}</td>
+                <td className="center">{row.land_category_name || "-"}</td>
+                <td className="center">{row.purpose_area_name || "-"}</td>
                 <td className="right">{formatArea(row.area_sqm)}</td>
                 <td className="right">{formatNumber(row.price_current)}</td>
                 <td className="right">{formatNumber(row.estimated_total_price)}</td>
@@ -1265,8 +1320,8 @@ function rebuildZonePreview(zoneResult: MapZoneResponse, parcels: MapZoneRespons
     (item) => item.price_current !== null && item.price_year !== null && item.price_year === baseYear,
   );
   const assessedTotalPrice = countedParcels.reduce((sum, item) => sum + (item.estimated_total_price ?? 0), 0);
-  const averageUnitPrice =
-    zoneResult.summary.zone_area_sqm > 0 ? Math.round(assessedTotalPrice / zoneResult.summary.zone_area_sqm) : null;
+  const zoneAreaSqm = includedParcels.reduce((sum, item) => sum + (item.area_sqm ?? 0), 0);
+  const averageUnitPrice = zoneAreaSqm > 0 ? Math.round(assessedTotalPrice / zoneAreaSqm) : null;
 
   const nextParcels = parcels.map((item) => ({
     ...item,
@@ -1279,6 +1334,7 @@ function rebuildZonePreview(zoneResult: MapZoneResponse, parcels: MapZoneRespons
     summary: {
       ...zoneResult.summary,
       base_year: baseYear,
+      zone_area_sqm: Math.round(zoneAreaSqm * 100) / 100,
       parcel_count: includedParcels.length,
       counted_parcel_count: countedParcels.length,
       excluded_parcel_count: parcels.length - includedParcels.length,
@@ -1299,6 +1355,56 @@ function buildZonePointMarker(index: number, isFirst: boolean): HTMLDivElement {
   element.className = `map-zone-point-marker ${isFirst ? "first" : ""}`;
   element.innerHTML = `<span>${index}</span>`;
   return element;
+}
+
+function parseParcelPolygonPaths(geometryGeojson: string, kakaoMaps: any): any[] {
+  if (!geometryGeojson || !kakaoMaps?.LatLng) return [];
+
+  try {
+    const geometry = JSON.parse(geometryGeojson) as { type?: string; coordinates?: unknown };
+    if (!geometry?.type || !geometry?.coordinates) return [];
+
+    if (geometry.type === "Polygon" && Array.isArray(geometry.coordinates)) {
+      const rings = buildPolygonRings(geometry.coordinates, kakaoMaps);
+      return rings.length > 0 ? [rings.length === 1 ? rings[0] : rings] : [];
+    }
+
+    if (geometry.type === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
+      const paths: any[] = [];
+      for (const polygon of geometry.coordinates) {
+        if (!Array.isArray(polygon)) continue;
+        const rings = buildPolygonRings(polygon, kakaoMaps);
+        if (rings.length > 0) {
+          paths.push(rings.length === 1 ? rings[0] : rings);
+        }
+      }
+      return paths;
+    }
+  } catch {
+    return [];
+  }
+
+  return [];
+}
+
+function buildPolygonRings(rawPolygon: unknown[], kakaoMaps: any): any[] {
+  const rings: any[] = [];
+  for (const rawRing of rawPolygon) {
+    if (!Array.isArray(rawRing)) continue;
+    const ring = rawRing
+      .map((point) => {
+        if (!Array.isArray(point) || point.length < 2) return null;
+        const lng = Number(point[0]);
+        const lat = Number(point[1]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return new kakaoMaps.LatLng(lat, lng);
+      })
+      .filter(Boolean);
+    if (ring.length >= 3) {
+      rings.push(ring);
+    }
+  }
+  return rings;
 }
 
 function formatNumber(value: number | null): string {

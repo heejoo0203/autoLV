@@ -14,6 +14,7 @@
 - `20260305_0005`: `users.phone_number`
 - `20260306_0006`: `zone_analyses`, `zone_analysis_parcels`
 - `20260306_0007`: `parcels.geom` 타입을 `MULTIPOLYGON`으로 변경(지적도 호환)
+- `20260307_0008`: `zone_analysis_parcels.land_category_name`, `zone_analysis_parcels.purpose_area_name`
 
 ## 2. 테이블 상세
 ### 2.1 users
@@ -114,6 +115,7 @@
 비고:
 - `zone_analyses`는 `/map/zones/analyze` 호출 시 자동 생성되지 않는다.
 - 사용자가 `구역 저장`을 눌러 `/map/zones`를 호출했을 때만 영속 저장된다.
+- `zone_area_sqm`는 드로잉 폴리곤 면적이 아니라, 저장 시점 기준 포함 필지 `area_sqm` 합계다.
 
 ### 2.7 zone_analysis_parcels
 - `id` (String(36), PK)
@@ -121,6 +123,8 @@
 - `pnu` (String(19), NOT NULL, INDEX)
 - `jibun_address` (String(300), NOT NULL)
 - `road_address` (String(300), NOT NULL)
+- `land_category_name` (String(100), NULL)
+- `purpose_area_name` (String(100), NULL)
 - `area_sqm` (Float, NOT NULL)
 - `price_current` (BigInteger, NULL)
 - `price_year` (String(4), NULL)

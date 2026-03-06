@@ -72,6 +72,9 @@ class MapZoneParcelItem(BaseModel):
     pnu: str
     jibun_address: str
     road_address: str
+    land_category_name: str | None
+    purpose_area_name: str | None
+    geometry_geojson: str | None
     area_sqm: float
     price_current: int | None
     price_year: str | None

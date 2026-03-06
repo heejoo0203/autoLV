@@ -30,6 +30,7 @@ from app.schemas.map import (
     MapZoneSummary,
     MapZoneUpdateRequest,
 )
+from app.services.map_service import _fetch_land_characteristics_latest, _to_text_or_none
 from app.services.vworld_service import call_vworld_json
 
 _PNU_PATTERN = re.compile(r"^\d{19}$")
@@ -56,6 +57,9 @@ class _ZoneParcelComputed:
     price_year: str | None
     jibun_address: str
     road_address: str
+    land_category_name: str | None
+    purpose_area_name: str | None
+    geometry_geojson: str | None
 
 
 @dataclass
@@ -118,6 +122,8 @@ def save_zone_analysis(
                 pnu=item.pnu,
                 jibun_address=item.jibun_address,
                 road_address=item.road_address,
+                land_category_name=item.land_category_name,
+                purpose_area_name=item.purpose_area_name,
                 area_sqm=item.area_sqm,
                 price_current=item.price_current,
                 price_year=item.price_year,
@@ -145,11 +151,20 @@ def get_zone_detail(db: Session, *, user_id: str, zone_id: str) -> MapZoneRespon
         .all()
     )
     base_year = analysis.base_year
+    response_zone_area_sqm = round(sum(float(row.area_sqm or 0.0) for row in rows if row.included), 2)
+    parcel_metadata_map = _fetch_saved_zone_parcel_metadata(db, [row.pnu for row in rows])
+    missing_land_metadata_pnu = [
+        row.pnu for row in rows if not row.land_category_name and not row.purpose_area_name
+    ]
+    live_land_metadata_map = _fetch_zone_land_metadata(missing_land_metadata_pnu) if missing_land_metadata_pnu else {}
     parcels = [
         MapZoneParcelItem(
             pnu=row.pnu,
             jibun_address=row.jibun_address,
             road_address=row.road_address,
+            land_category_name=row.land_category_name or live_land_metadata_map.get(row.pnu, {}).get("land_category_name"),
+            purpose_area_name=row.purpose_area_name or live_land_metadata_map.get(row.pnu, {}).get("purpose_area_name"),
+            geometry_geojson=parcel_metadata_map.get(row.pnu),
             area_sqm=float(row.area_sqm or 0.0),
             price_current=row.price_current,
             price_year=row.price_year,
@@ -170,13 +185,13 @@ def get_zone_detail(db: Session, *, user_id: str, zone_id: str) -> MapZoneRespon
         is_saved=True,
         base_year=analysis.base_year,
         overlap_threshold=round(float(analysis.overlap_threshold), 4),
-        zone_area_sqm=round(float(analysis.zone_area_sqm), 2),
+        zone_area_sqm=response_zone_area_sqm,
         parcel_count=int(analysis.parcel_count),
         counted_parcel_count=int(analysis.counted_parcel_count),
         excluded_parcel_count=int(analysis.excluded_parcel_count),
         average_unit_price=_calculate_average_unit_price(
             assessed_total_price=int(analysis.assessed_total_price),
-            zone_area_sqm=float(analysis.zone_area_sqm),
+            zone_area_sqm=response_zone_area_sqm,
         ),
         assessed_total_price=int(analysis.assessed_total_price),
         created_at=_to_iso(analysis.created_at),
@@ -352,8 +367,8 @@ def _prepare_zone_preview(db: Session, *, payload: MapZoneAnalyzeRequest) -> _Pr
     coordinates = _normalize_polygon_coordinates(payload.coordinates)
     zone_wkt = _coordinates_to_wkt(coordinates)
 
-    zone_area_sqm = _calculate_zone_area(db, zone_wkt)
-    if zone_area_sqm > settings.map_zone_max_area_sqm:
+    drawn_zone_area_sqm = _calculate_zone_area(db, zone_wkt)
+    if drawn_zone_area_sqm > settings.map_zone_max_area_sqm:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -367,15 +382,17 @@ def _prepare_zone_preview(db: Session, *, payload: MapZoneAnalyzeRequest) -> _Pr
     feature_map = _fetch_vworld_parcel_features(bbox)
     _upsert_parcel_geometries(db, list(feature_map.values()))
     overlapped = _query_overlapped_parcels(db, zone_wkt=zone_wkt, threshold=threshold, pnu_list=list(feature_map.keys()))
-    parcels = _compose_zone_parcels(overlapped, feature_map)
+    land_metadata_map = _fetch_zone_land_metadata([row["pnu"] for row in overlapped])
+    parcels = _compose_zone_parcels(overlapped, feature_map, land_metadata_map)
+    summary = _calculate_summary(parcels)
     return _PreparedZonePreview(
         zone_name=zone_name,
         threshold=threshold,
         coordinates=coordinates,
         zone_wkt=zone_wkt,
-        zone_area_sqm=zone_area_sqm,
+        zone_area_sqm=summary["zone_area_sqm"],
         parcels=parcels,
-        summary=_calculate_summary(parcels),
+        summary=summary,
         generated_at=datetime.now(timezone.utc),
     )
 
@@ -396,6 +413,9 @@ def _build_zone_response(
             pnu=item.pnu,
             jibun_address=item.jibun_address,
             road_address=item.road_address,
+            land_category_name=item.land_category_name,
+            purpose_area_name=item.purpose_area_name,
+            geometry_geojson=item.geometry_geojson,
             area_sqm=item.area_sqm,
             price_current=item.price_current,
             price_year=item.price_year,
@@ -419,13 +439,13 @@ def _build_zone_response(
         is_saved=is_saved,
         base_year=summary_values["base_year"],
         overlap_threshold=round(preview.threshold, 4),
-        zone_area_sqm=round(preview.zone_area_sqm, 2),
+        zone_area_sqm=round(summary_values["zone_area_sqm"], 2),
         parcel_count=summary_values["parcel_count"],
         counted_parcel_count=summary_values["counted_parcel_count"],
         excluded_parcel_count=excluded_count,
         average_unit_price=_calculate_average_unit_price(
             assessed_total_price=summary_values["assessed_total_price"],
-            zone_area_sqm=float(preview.zone_area_sqm),
+            zone_area_sqm=float(summary_values["zone_area_sqm"]),
         ),
         assessed_total_price=summary_values["assessed_total_price"],
         created_at=_to_iso(preview.generated_at),
@@ -743,6 +763,7 @@ def _query_overlapped_parcels(
             p.lat,
             p.lng,
             COALESCE(p.area, ST_Area(p.geom::geography)) AS area_sqm,
+            ST_AsGeoJSON(p.geom) AS geometry_geojson,
             ST_Area(ST_Intersection(p.geom, z.geom)::geography) / NULLIF(ST_Area(p.geom::geography), 0) AS overlap_ratio
           FROM parcels p
           CROSS JOIN zone z
@@ -750,7 +771,7 @@ def _query_overlapped_parcels(
             AND p.pnu IN ({where_pnu})
             AND ST_Intersects(p.geom, z.geom)
         )
-        SELECT pnu, lat, lng, area_sqm, overlap_ratio
+        SELECT pnu, lat, lng, area_sqm, geometry_geojson, overlap_ratio
         FROM candidates
         WHERE overlap_ratio >= :threshold
         ORDER BY overlap_ratio DESC, pnu ASC
@@ -762,6 +783,7 @@ def _query_overlapped_parcels(
 def _compose_zone_parcels(
     rows: list[dict[str, Any]],
     feature_map: dict[str, _VWorldParcelFeature],
+    land_metadata_map: dict[str, dict[str, str | None]],
 ) -> list[_ZoneParcelComputed]:
     parcels: list[_ZoneParcelComputed] = []
     for row in rows:
@@ -769,6 +791,7 @@ def _compose_zone_parcels(
         if not pnu:
             continue
         feature = feature_map.get(pnu)
+        land_metadata = land_metadata_map.get(pnu, {})
         area_sqm = float(row.get("area_sqm") or 0.0)
         parcels.append(
             _ZoneParcelComputed(
@@ -781,6 +804,9 @@ def _compose_zone_parcels(
                 price_year=feature.price_year if feature else None,
                 jibun_address=(feature.address if feature else "") or pnu,
                 road_address="",
+                land_category_name=land_metadata.get("land_category_name"),
+                purpose_area_name=land_metadata.get("purpose_area_name"),
+                geometry_geojson=_to_text_or_none(row.get("geometry_geojson")),
             )
         )
     return parcels
@@ -798,11 +824,13 @@ def _calculate_summary(parcels: list[_ZoneParcelComputed]) -> dict[str, Any]:
         if item.price_current is not None and item.price_year is not None and item.price_year == base_year
     ]
     counted_parcel_count = len(counted)
+    zone_area_sqm = round(sum(float(item.area_sqm or 0.0) for item in parcels), 2)
     unit_price_sum = sum(int(item.price_current or 0) for item in counted)
     assessed_total_price = sum(int(round(item.area_sqm * int(item.price_current or 0))) for item in counted)
 
     return {
         "base_year": base_year,
+        "zone_area_sqm": zone_area_sqm,
         "parcel_count": parcel_count,
         "counted_parcel_count": counted_parcel_count,
         "excluded_parcel_count": excluded_parcel_count,
@@ -826,6 +854,7 @@ def _recalculate_zone_summary(db: Session, analysis: ZoneAnalysis) -> None:
     ]
 
     analysis.base_year = base_year
+    analysis.zone_area_sqm = round(sum(float(row.area_sqm or 0.0) for row in included_rows), 2)
     analysis.parcel_count = len(included_rows)
     analysis.excluded_parcel_count = len(rows) - len(included_rows)
     analysis.counted_parcel_count = len(counted_rows)
@@ -855,6 +884,49 @@ def _get_zone_analysis_or_404(db: Session, *, user_id: str, zone_id: str) -> Zon
             detail={"code": "ZONE_ANALYSIS_NOT_FOUND", "message": "구역 분석 결과를 찾을 수 없습니다."},
         )
     return analysis
+
+
+def _fetch_saved_zone_parcel_metadata(db: Session, pnu_list: list[str]) -> dict[str, str]:
+    unique_pnu_list = [pnu for pnu in dict.fromkeys(pnu_list) if pnu]
+    if not unique_pnu_list:
+        return {}
+
+    bind_params: dict[str, Any] = {}
+    placeholders: list[str] = []
+    for idx, pnu in enumerate(unique_pnu_list):
+        key = f"meta_pnu_{idx}"
+        bind_params[key] = pnu
+        placeholders.append(f":{key}")
+
+    rows = db.execute(
+        text(
+            f"""
+            SELECT pnu, ST_AsGeoJSON(geom) AS geometry_geojson
+            FROM parcels
+            WHERE geom IS NOT NULL
+              AND pnu IN ({", ".join(placeholders)})
+            """
+        ),
+        bind_params,
+    ).mappings().all()
+    return {
+        str(row.get("pnu") or "").strip(): str(row.get("geometry_geojson") or "").strip()
+        for row in rows
+        if row.get("pnu") and row.get("geometry_geojson")
+    }
+
+
+def _fetch_zone_land_metadata(pnu_list: list[str]) -> dict[str, dict[str, str | None]]:
+    metadata_map: dict[str, dict[str, str | None]] = {}
+    for pnu in dict.fromkeys(pnu_list):
+        if not pnu:
+            continue
+        details = _fetch_land_characteristics_latest(pnu) or {}
+        metadata_map[pnu] = {
+            "land_category_name": _to_text_or_none(details.get("lndcgrCodeNm")),
+            "purpose_area_name": _to_text_or_none(details.get("prposAreaNm") or details.get("prposArea1Nm")),
+        }
+    return metadata_map
 
 
 def _is_postgres(db: Session) -> bool:

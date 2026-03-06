@@ -37,6 +37,7 @@ cp .env.example .env
 - `VWORLD_API_KEY`
 - `VWORLD_API_DOMAIN` (VWorld 등록값과 동일)
 - `PROXY_TOKEN` (Railway와 동일한 공유 토큰)
+- `ALLOWED_PATH_PREFIXES` (`/ned,/req/address,/req/data` 권장)
 
 ## 5. 수동 실행
 ```bash
@@ -56,6 +57,16 @@ curl -X POST http://127.0.0.1:8080/vworld-proxy \
   -H "x-vworld-proxy-token: <PROXY_TOKEN>" \
   -d '{"path":"/ned/data/getIndvdLandPriceAttr","params":{"pnu":"1111010100100010000","format":"json","numOfRows":"10","pageNo":"1"}}'
 ```
+
+구역조회용 추가 확인:
+```bash
+curl -X POST http://127.0.0.1:8080/vworld-proxy \
+  -H "content-type: application/json" \
+  -H "x-vworld-proxy-token: <PROXY_TOKEN>" \
+  -d '{"path":"/req/data","params":{"service":"data","request":"GetFeature","data":"LP_PA_CBND_BUBUN","version":"2.0","format":"json","geomFilter":"BOX(126.9761,37.5642,126.9770,37.5649)","size":"10","page":"1"}}'
+```
+
+위 요청이 400으로 떨어지면 `.env`의 `ALLOWED_PATH_PREFIXES`에 `/req/data`가 빠진 상태다.
 
 ## 6. systemd 등록
 ```bash

@@ -637,11 +637,14 @@ function MapPageClient() {
     return rebuildZonePreview(payload, nextParcels);
   };
 
-  const openZoneParcelInBasicView = async (pnu: string) => {
+  const openZoneParcelInBasicView = async (parcel: MapZoneResponse["parcels"][number]) => {
     setViewMode("basic");
     setLoading(true);
     try {
-      const payload = await fetchMapLookupByPnu(pnu);
+      const payload =
+        parcel.lat !== null && parcel.lng !== null
+          ? await fetchMapLookup(parcel.lat, parcel.lng)
+          : await fetchMapLookupByPnu(parcel.pnu);
       applyLookupResult(payload, {
         persistHistory: false,
         customMessage: "구역 결과에서 기본 조회로 전환했습니다.",
@@ -1068,7 +1071,7 @@ function MapPageClient() {
               setMarker(lat, lng);
               moveMapCenter(lat, lng);
             }}
-            onOpenBasic={(pnu) => void openZoneParcelInBasicView(pnu)}
+            onOpenBasic={(parcel) => void openZoneParcelInBasicView(parcel)}
           />
         )}
         </section>
@@ -1189,7 +1192,7 @@ function ZoneResultTable({
   selectedPnuSet: Set<string>;
   onSelect: (pnu: string, checked: boolean) => void;
   onLocate: (lat: number | null, lng: number | null) => void;
-  onOpenBasic: (pnu: string) => void;
+  onOpenBasic: (parcel: MapZoneResponse["parcels"][number]) => void;
 }) {
   if (!zoneResult) {
     return <div className="map-empty">구역 좌표를 선택하고 `구역 분석`을 실행해 주세요.</div>;
@@ -1236,7 +1239,7 @@ function ZoneResultTable({
                   />
                 </td>
                 <td onClick={(event) => event.stopPropagation()}>
-                  <button type="button" className="map-address-link" onClick={() => onOpenBasic(row.pnu)}>
+                  <button type="button" className="map-address-link" onClick={() => onOpenBasic(row)}>
                     {row.jibun_address || "-"}
                   </button>
                 </td>

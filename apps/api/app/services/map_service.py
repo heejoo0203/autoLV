@@ -136,16 +136,32 @@ def lookup_map_by_pnu(db: Session, pnu: str) -> MapLookupResponse:
             detail={"code": "INVALID_PNU", "message": "PNU 형식이 올바르지 않습니다."},
         )
 
-    row = db.execute(
-        text(
-            """
-            SELECT lat, lng
-            FROM parcels
-            WHERE pnu = :pnu
-            """
-        ),
-        {"pnu": pnu},
-    ).mappings().first()
+    if _is_postgres(db):
+        row = db.execute(
+            text(
+                """
+                SELECT
+                  lat,
+                  lng,
+                  CASE WHEN geom IS NOT NULL THEN ST_Y(ST_Centroid(geom)) END AS geom_lat,
+                  CASE WHEN geom IS NOT NULL THEN ST_X(ST_Centroid(geom)) END AS geom_lng
+                FROM parcels
+                WHERE pnu = :pnu
+                """
+            ),
+            {"pnu": pnu},
+        ).mappings().first()
+    else:
+        row = db.execute(
+            text(
+                """
+                SELECT lat, lng
+                FROM parcels
+                WHERE pnu = :pnu
+                """
+            ),
+            {"pnu": pnu},
+        ).mappings().first()
 
     if not row:
         raise HTTPException(
@@ -153,8 +169,8 @@ def lookup_map_by_pnu(db: Session, pnu: str) -> MapLookupResponse:
             detail={"code": "PARCEL_NOT_FOUND", "message": "해당 PNU의 좌표 데이터가 없습니다."},
         )
 
-    lat = _to_float(row.get("lat"))
-    lng = _to_float(row.get("lng"))
+    lat = _to_float(row.get("lat")) or _to_float(row.get("geom_lat"))
+    lng = _to_float(row.get("lng")) or _to_float(row.get("geom_lng"))
     if lat is None or lng is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

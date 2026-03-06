@@ -445,9 +445,30 @@ def _call_vworld_proxy(path: str, params: dict[str, str]) -> dict[str, Any]:
         ) from exc
 
     if response.status_code >= 400:
+        error_code = "VWORLD_PROXY_HTTP_ERROR"
+        error_message = f"VWorld 프록시 HTTP 오류: {response.status_code}"
+        try:
+            error_payload = response.json()
+        except ValueError:
+            error_payload = None
+
+        if isinstance(error_payload, dict):
+            detail_payload = error_payload.get("detail", error_payload)
+            if isinstance(detail_payload, dict):
+                error_code = str(detail_payload.get("code", error_code))
+                error_message = str(detail_payload.get("message", error_message))
+            else:
+                payload_message = str(error_payload.get("message", "")).strip()
+                if payload_message:
+                    error_message = payload_message
+        else:
+            raw_message = response.text.strip()
+            if raw_message:
+                error_message = raw_message[:300]
+
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"code": "VWORLD_PROXY_HTTP_ERROR", "message": f"VWorld 프록시 HTTP 오류: {response.status_code}"},
+            detail={"code": error_code, "message": error_message},
         )
 
     try:

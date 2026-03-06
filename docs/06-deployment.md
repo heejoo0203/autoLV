@@ -128,11 +128,17 @@ Railway -> VWorld 직접 호출이 차단/불안정할 때 적용한다.
 2. `infra/vworld-proxy` 배포
 3. systemd 서비스 등록 (`autolv-vworld-proxy.service`)
 4. API env에 `VWORLD_PROXY_URL`, `VWORLD_PROXY_TOKEN` 설정
+5. EC2 프록시 env의 `ALLOWED_PATH_PREFIXES`에 반드시 `/req/data` 포함
 
 체크:
 - EC2 내부: `curl http://127.0.0.1:8080/health`
 - 외부 접근: `curl http://<ElasticIP>:8080/health`
 - API에서 land/map 조회 시 프록시 fallback 동작
+
+주의:
+- 구역조회는 VWorld 지적도 피처 조회를 위해 `/req/data`를 사용한다.
+- EC2 프록시의 `ALLOWED_PATH_PREFIXES`가 `/ned,/req/address`만 설정되어 있으면 구역조회 시 프록시 400(`DISALLOWED_PATH`)가 발생한다.
+- 권장값: `ALLOWED_PATH_PREFIXES=/ned,/req/address,/req/data`
 
 ## 8. Android 배포 산출물
 - APK(웹 다운로드 배포용):

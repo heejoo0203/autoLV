@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     timeout_seconds: int = 20
     retry_count: int = 4
     retry_backoff_seconds: float = 0.5
-    allowed_path_prefixes: str = "/ned,/req/address"
+    allowed_path_prefixes: str = "/ned,/req/address,/req/data"
 
 
 settings = Settings()
@@ -160,4 +160,3 @@ def _get_session() -> requests.Session:
     session.mount("https://", adapter)
     _session = session
     return session
-

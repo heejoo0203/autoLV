@@ -34,3 +34,14 @@ class QueryLogListResponse(BaseModel):
     total_count: int
     total_pages: int
     items: list[QueryLogItemResponse]
+
+
+class QueryLogDeleteRequest(BaseModel):
+    log_ids: list[str] = Field(min_length=1, max_length=100)
+
+
+class QueryLogDeleteResponse(BaseModel):
+    deleted_count: int
+    skipped_count: int
+    deleted_log_ids: list[str]
+    skipped_log_ids: list[str]

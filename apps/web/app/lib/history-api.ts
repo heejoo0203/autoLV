@@ -1,6 +1,12 @@
 "use client";
 
-import type { LandResultRow, SearchHistoryLog, SearchHistoryLogDetail, SearchHistoryLogListResponse } from "@/app/lib/types";
+import type {
+  LandResultRow,
+  SearchHistoryDeleteResponse,
+  SearchHistoryLog,
+  SearchHistoryLogDetail,
+  SearchHistoryLogListResponse,
+} from "@/app/lib/types";
 
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
@@ -63,6 +69,17 @@ export async function fetchSearchHistoryDetail(logId: string): Promise<SearchHis
   const body = (await safeJson(res)) as SearchHistoryLogDetail | { detail?: unknown };
   if (!res.ok) throw new Error(extractError(body, "조회기록을 불러오지 못했습니다."));
   return body as SearchHistoryLogDetail;
+}
+
+export async function deleteSearchHistoryLogs(logIds: string[]): Promise<SearchHistoryDeleteResponse> {
+  const res = await apiFetch("/api/v1/history/query-logs/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ log_ids: logIds }),
+  });
+  const body = (await safeJson(res)) as SearchHistoryDeleteResponse | { detail?: unknown };
+  if (!res.ok) throw new Error(extractError(body, "조회기록 삭제에 실패했습니다."));
+  return body as SearchHistoryDeleteResponse;
 }
 
 function normalizeBase(base: string): string {

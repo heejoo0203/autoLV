@@ -13,13 +13,17 @@ from app.models.user import User
 from app.repositories.query_log_repository import (
     count_query_logs_by_user,
     create_query_log,
+    delete_query_logs_by_ids,
     get_latest_query_log_by_user,
     get_query_log_by_id,
+    get_query_logs_by_ids,
     list_query_logs_by_user,
     update_query_log_content,
 )
 from app.schemas.history import (
     QueryLogCreateRequest,
+    QueryLogDeleteRequest,
+    QueryLogDeleteResponse,
     QueryLogDetailResponse,
     QueryLogItemResponse,
     QueryLogListResponse,
@@ -146,6 +150,27 @@ def get_history_log(
             detail={"code": "QUERY_LOG_NOT_FOUND", "message": "조회기록을 찾을 수 없습니다."},
         )
     return _to_detail_response(item)
+
+
+@router.post("/query-logs/delete", response_model=QueryLogDeleteResponse)
+def delete_history_logs(
+    payload: QueryLogDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_get_current_user),
+) -> QueryLogDeleteResponse:
+    candidates = get_query_logs_by_ids(db, user_id=current_user.id, log_ids=payload.log_ids)
+    deletable_ids = [item.id for item in candidates]
+    if deletable_ids:
+        delete_query_logs_by_ids(db, user_id=current_user.id, log_ids=deletable_ids)
+
+    found_set = {item.id for item in candidates}
+    skipped_ids = [log_id for log_id in payload.log_ids if log_id not in found_set]
+    return QueryLogDeleteResponse(
+        deleted_count=len(deletable_ids),
+        skipped_count=len(skipped_ids),
+        deleted_log_ids=deletable_ids,
+        skipped_log_ids=skipped_ids,
+    )
 
 
 def _to_item_response(item: QueryLog) -> QueryLogItemResponse:

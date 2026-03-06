@@ -690,6 +690,27 @@
 설명:
 - 상세 조회기록 + 연도별 결과 rows 조회
 
+### POST `/history/query-logs/delete`
+설명:
+- 선택한 조회기록 다중 삭제
+
+요청:
+```json
+{
+  "log_ids": ["log-uuid-1", "log-uuid-2"]
+}
+```
+
+응답 200:
+```json
+{
+  "deleted_count": 2,
+  "skipped_count": 0,
+  "deleted_log_ids": ["log-uuid-1", "log-uuid-2"],
+  "skipped_log_ids": []
+}
+```
+
 ## 6. 오류 응답 형식
 FastAPI 기본 `detail` 형식 사용:
 

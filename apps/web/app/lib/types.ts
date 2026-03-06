@@ -61,6 +61,13 @@ export type SearchHistoryLogListResponse = {
   items: SearchHistoryLog[];
 };
 
+export type SearchHistoryDeleteResponse = {
+  deleted_count: number;
+  skipped_count: number;
+  deleted_log_ids: string[];
+  skipped_log_ids: string[];
+};
+
 export type BulkAddressMode = "auto" | "jibun" | "road";
 
 export type BulkJobStatus = "queued" | "processing" | "completed" | "failed";

@@ -66,6 +66,13 @@ def get_query_log_by_id(db: Session, *, user_id: str, log_id: str) -> QueryLog |
     return db.scalar(stmt)
 
 
+def get_query_logs_by_ids(db: Session, *, user_id: str, log_ids: list[str]) -> list[QueryLog]:
+    if not log_ids:
+        return []
+    stmt = select(QueryLog).where(QueryLog.user_id == user_id, QueryLog.id.in_(log_ids))
+    return list(db.scalars(stmt))
+
+
 def count_query_logs_by_user(
     db: Session,
     *,
@@ -113,6 +120,15 @@ def list_query_logs_by_user(
 
 def delete_query_logs_by_user(db: Session, *, user_id: str) -> int:
     stmt = delete(QueryLog).where(QueryLog.user_id == user_id)
+    result = db.execute(stmt)
+    db.commit()
+    return int(result.rowcount or 0)
+
+
+def delete_query_logs_by_ids(db: Session, *, user_id: str, log_ids: list[str]) -> int:
+    if not log_ids:
+        return 0
+    stmt = delete(QueryLog).where(QueryLog.user_id == user_id, QueryLog.id.in_(log_ids))
     result = db.execute(stmt)
     db.commit()
     return int(result.rowcount or 0)

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
-import { fetchSearchHistoryLogsWithFilter } from "@/app/lib/history-api";
+import { deleteSearchHistoryLogs, fetchSearchHistoryLogsWithFilter } from "@/app/lib/history-api";
 import type { SearchHistoryLog } from "@/app/lib/types";
 
 type SearchTypeFilter = "all" | "jibun" | "road" | "map";
@@ -32,7 +32,9 @@ export default function HistoryPage() {
   const isLoggedIn = Boolean(user);
   const [records, setRecords] = useState<SearchHistoryLog[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
 
   const [searchTypeFilter, setSearchTypeFilter] = useState<SearchTypeFilter>("all");
   const [sidoFilter, setSidoFilter] = useState("");
@@ -110,6 +112,7 @@ export default function HistoryPage() {
   useEffect(() => {
     if (!isLoggedIn) {
       setRecords([]);
+      setSelectedLogIds(new Set());
       setMessage("");
       return;
     }
@@ -128,6 +131,10 @@ export default function HistoryPage() {
         });
         if (ignore) return;
         setRecords(payload.items);
+        setSelectedLogIds((prev) => {
+          const visibleIds = new Set(payload.items.map((item) => item.id));
+          return new Set(Array.from(prev).filter((id) => visibleIds.has(id)));
+        });
         setMessage("");
       } catch (error) {
         if (ignore) return;
@@ -142,6 +149,73 @@ export default function HistoryPage() {
       ignore = true;
     };
   }, [isLoggedIn, appliedFilter]);
+
+  const allSelected = records.length > 0 && records.every((item) => selectedLogIds.has(item.id));
+
+  const handleToggleSelect = (logId: string) => {
+    setSelectedLogIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(logId)) {
+        next.delete(logId);
+      } else {
+        next.add(logId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (!checked) {
+      setSelectedLogIds(new Set());
+      return;
+    }
+    setSelectedLogIds(new Set(records.map((item) => item.id)));
+  };
+
+  const reloadRecords = async () => {
+    setLoading(true);
+    try {
+      const payload = await fetchSearchHistoryLogsWithFilter({
+        page: 1,
+        pageSize: 100,
+        searchType: appliedFilter.searchType,
+        sido: appliedFilter.sido,
+        sigungu: appliedFilter.sigungu,
+        sortBy: appliedFilter.sortBy,
+        sortOrder: appliedFilter.sortOrder,
+      });
+      setRecords(payload.items);
+      setSelectedLogIds((prev) => {
+        const visibleIds = new Set(payload.items.map((item) => item.id));
+        return new Set(Array.from(prev).filter((id) => visibleIds.has(id)));
+      });
+      setMessage("");
+    } catch (error) {
+      setRecords([]);
+      setSelectedLogIds(new Set());
+      setMessage(error instanceof Error ? error.message : "조회기록을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedLogIds.size === 0) return;
+    const confirmed = window.confirm(`선택한 조회기록 ${selectedLogIds.size}건을 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const payload = await deleteSearchHistoryLogs(Array.from(selectedLogIds));
+      setSelectedLogIds(new Set());
+      setMessage(`삭제 완료: ${payload.deleted_count}건, 건너뜀: ${payload.skipped_count}건`);
+      await reloadRecords();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "조회기록 삭제에 실패했습니다.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (!isLoggedIn) {
     return (
@@ -246,14 +320,39 @@ export default function HistoryPage() {
         </button>
       </div>
 
+      <div className="bulk-table-head">
+        <h2>기록 목록</h2>
+        <div className="bulk-head-actions">
+          <button type="button" className="nav-item" onClick={() => void reloadRecords()} disabled={loading || deleting}>
+            새로고침
+          </button>
+          <button
+            type="button"
+            className="nav-item danger"
+            onClick={() => void handleDeleteSelected()}
+            disabled={selectedLogIds.size === 0 || deleting || loading}
+          >
+            {deleting ? "삭제 중..." : "선택 삭제"}
+          </button>
+        </div>
+      </div>
+
       {loading ? <p className="hint">불러오는 중...</p> : null}
       {!loading && message ? <p className="hint">{message}</p> : null}
       {records.length === 0 ? (
-        <p className="hint">조건에 맞는 조회기록이 없습니다.</p>
+        <div className="empty-box">조건에 맞는 조회기록이 없습니다.</div>
       ) : (
         <table className="data-table history-table mobile-card-table">
           <thead>
             <tr>
+              <th className="checkbox-col">
+                <input
+                  type="checkbox"
+                  aria-label="현재 조회기록 전체 선택"
+                  checked={allSelected}
+                  onChange={(event) => handleToggleSelectAll(event.target.checked)}
+                />
+              </th>
               <th className="history-center-col">순번</th>
               <th className="history-center-col">
                 <button
@@ -298,6 +397,7 @@ export default function HistoryPage() {
               <tr
                 key={row.id}
                 onClick={() => {
+                  if (deleting) return;
                   if (row.search_type === "map") {
                     router.push(`/map?recordId=${row.id}`);
                     return;
@@ -306,6 +406,15 @@ export default function HistoryPage() {
                 }}
                 style={{ cursor: "pointer" }}
               >
+                <td className="checkbox-col" data-label="선택" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`${row.address_summary} 선택`}
+                    checked={selectedLogIds.has(row.id)}
+                    onChange={() => handleToggleSelect(row.id)}
+                    disabled={deleting}
+                  />
+                </td>
                 <td data-label="순번" className="history-center-col">{idx + 1}</td>
                 <td data-label="일시" className="history-center-col">{formatKST(row.created_at)}</td>
                 <td data-label="유형" className="history-center-col">{toSearchTypeLabel(row.search_type)}</td>

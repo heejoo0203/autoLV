@@ -5,11 +5,11 @@ import { useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
 import { ROAD_INITIALS } from "@/app/lib/address";
+import { apiFetch, extractError, safeJson } from "@/app/lib/api-client";
 import { createSearchHistoryLog, fetchSearchHistoryDetail } from "@/app/lib/history-api";
 import type { LdMap, LandResultRow, SearchTab } from "@/app/lib/types";
 
 const SAN_OPTIONS = ["일반", "산"] as const;
-const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
 type LandLookupApiResponse = {
   search_type: "jibun" | "road";
@@ -459,67 +459,8 @@ function SelectBox(props: {
   );
 }
 
-function normalizeBase(base: string): string {
-  return base.replace(/\/+$/, "");
-}
-
-function resolveApiBases(): string[] {
-  const envBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  const bases: string[] = [];
-  const isBrowser = typeof window !== "undefined";
-  const hasProxy = Boolean(envBase);
-  const hostname = isBrowser ? window.location.hostname.toLowerCase() : "";
-  const isLocalHost =
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname.endsWith(".local");
-
-  if (isBrowser && hasProxy) {
-    bases.push(normalizeBase(window.location.origin));
-  }
-  if (envBase) bases.push(normalizeBase(envBase));
-  if (isBrowser && isLocalHost) {
-    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-    bases.push(`${protocol}//${window.location.hostname}:8000`);
-    bases.push("http://localhost:8000");
-    bases.push(DEFAULT_API_BASE);
-  }
-  return Array.from(new Set(bases.map(normalizeBase)));
-}
-
 async function landFetch(path: string, init: RequestInit): Promise<Response> {
-  let lastError: unknown = null;
-  for (const base of resolveApiBases()) {
-    try {
-      return await fetch(`${base}${path}`, {
-        ...init,
-        credentials: "include",
-      });
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  if (lastError instanceof Error) throw lastError;
-  throw new Error("API 연결에 실패했습니다.");
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return {};
-  }
-}
-
-function extractError(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
-  const detail = (payload as { detail?: unknown }).detail;
-  if (typeof detail === "string") return detail;
-  if (detail && typeof detail === "object") {
-    const message = (detail as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  return fallback;
+  return apiFetch(path, init);
 }
 
 function toDisplayAddress(summary: string, results: LandResultRow[]): string {

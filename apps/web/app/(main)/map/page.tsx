@@ -4,6 +4,10 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
+import { MapRowsTable } from "@/app/components/map/map-rows-table";
+import { MetricCard } from "@/app/components/map/metric-card";
+import { ZoneLibraryPanel } from "@/app/components/map/zone-library-panel";
+import { ZoneResultTable } from "@/app/components/map/zone-result-table";
 import { createSearchHistoryLog, fetchSearchHistoryDetail } from "@/app/lib/history-api";
 import {
   analyzeMapZone,
@@ -21,6 +25,16 @@ import {
   saveMapZone,
   searchMapLookupByAddress,
 } from "@/app/lib/map-api";
+import {
+  buildZonePointMarker,
+  formatArea,
+  formatDateTime,
+  formatNumber,
+  formatRate,
+  parseParcelPolygonPaths,
+  rebuildZonePreview,
+  toPointKey,
+} from "@/app/lib/map-view-utils";
 import type {
   LandResultRow,
   MapLandDetailsResponse,
@@ -1103,343 +1117,6 @@ function MapPageClient() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric-card">
-      <div className="metric-label">{label}</div>
-      <div className="metric-value">{value}</div>
-    </div>
-  );
-}
-
-function ZoneLibraryPanel({
-  open,
-  loading,
-  items,
-  activeZoneId,
-  busyZoneId,
-  onSelect,
-  onRename,
-  onDelete,
-}: {
-  open: boolean;
-  loading: boolean;
-  items: MapZoneListItem[];
-  activeZoneId: string | null;
-  busyZoneId: string | null;
-  onSelect: (item: MapZoneListItem) => void;
-  onRename: (item: MapZoneListItem) => void;
-  onDelete: (item: MapZoneListItem) => void;
-}) {
-  return (
-    <div className={`map-zone-library ${open ? "open" : ""}`}>
-      <div className="map-zone-library-head">
-        <h3>저장된 구역</h3>
-        <span>{items.length}건</span>
-      </div>
-      {loading ? <div className="map-zone-library-empty">목록을 불러오는 중입니다...</div> : null}
-      {!loading && items.length === 0 ? <div className="map-zone-library-empty">저장된 구역이 없습니다.</div> : null}
-      {!loading && items.length > 0 ? (
-        <div className="map-zone-library-list">
-          {items.map((item) => {
-            const busy = busyZoneId === item.zone_id;
-            return (
-              <div
-                key={item.zone_id}
-                className={`map-zone-library-item ${activeZoneId === item.zone_id ? "active" : ""}`}
-                onClick={() => {
-                  if (!busy) {
-                    onSelect(item);
-                  }
-                }}
-              >
-                <div className="map-zone-library-title-row">
-                  <strong>{item.zone_name}</strong>
-                  <span>{item.base_year || "-"}</span>
-                </div>
-                <div className="map-zone-library-meta">
-                  <span>필지 {formatNumber(item.parcel_count)}</span>
-                  <span>{formatDateTime(item.updated_at)}</span>
-                </div>
-                <div className="map-zone-library-meta">
-                  <span>총합 {formatNumber(item.assessed_total_price)}원</span>
-                </div>
-                <div className="map-zone-library-actions" onClick={(event) => event.stopPropagation()}>
-                  <button type="button" className="map-zone-mini-btn" disabled={busy} onClick={() => onRename(item)}>
-                    이름 수정
-                  </button>
-                  <button type="button" className="map-zone-mini-btn danger" disabled={busy} onClick={() => onDelete(item)}>
-                    삭제
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ZoneResultTable({
-  zoneResult,
-  selectedPnuSet,
-  onSelect,
-  onLocate,
-  onOpenBasic,
-}: {
-  zoneResult: MapZoneResponse | null;
-  selectedPnuSet: Set<string>;
-  onSelect: (pnu: string, checked: boolean) => void;
-  onLocate: (lat: number | null, lng: number | null) => void;
-  onOpenBasic: (parcel: MapZoneResponse["parcels"][number]) => void;
-}) {
-  if (!zoneResult) {
-    return <div className="map-empty">구역 좌표를 선택하고 `구역 분석`을 실행해 주세요.</div>;
-  }
-
-  const { summary, parcels } = zoneResult;
-  const overlapPercent = Math.round((summary.overlap_threshold || 0.9) * 100);
-  return (
-    <>
-      <div className="map-metrics">
-        <MetricCard label="구역명" value={summary.zone_name} />
-        <MetricCard label="기준연도(최신)" value={summary.base_year || "-"} />
-        <MetricCard label="구역 면적(㎡)" value={formatArea(summary.zone_area_sqm)} />
-        <MetricCard label="구역 내 필지 수" value={formatNumber(summary.parcel_count)} />
-        <MetricCard label="평균 공시지가(원/㎡)" value={formatNumber(summary.average_unit_price)} />
-        <MetricCard label="총 공시지가 합계(원)" value={formatNumber(summary.assessed_total_price)} />
-      </div>
-      <p className="hint">필지 포함 기준: 구역 내부 {overlapPercent}% 이상 포함된 경우만 집계하며, 계산 반영 필지는 지도에서 진하게 표시합니다.</p>
-      <table className="data-table map-zone-table">
-        <thead>
-          <tr>
-            <th className="center">선택</th>
-            <th>지번 주소</th>
-            <th className="center">지목</th>
-            <th className="center">용도지역명</th>
-            <th className="right">면적(㎡)</th>
-            <th className="right">공시지가(원/㎡)</th>
-            <th className="right">면적×공시지가</th>
-            <th className="center">연도</th>
-          </tr>
-        </thead>
-        <tbody>
-          {parcels.map((row) => {
-            const selected = selectedPnuSet.has(row.pnu);
-            return (
-              <tr key={row.pnu} className={!row.included ? "excluded" : ""} onClick={() => onLocate(row.lat, row.lng)}>
-                <td className="center" onClick={(event) => event.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    disabled={!row.included}
-                    onChange={(event) => onSelect(row.pnu, event.target.checked)}
-                    aria-label={`필지 선택 ${row.pnu}`}
-                  />
-                </td>
-                <td onClick={(event) => event.stopPropagation()}>
-                  <button type="button" className="map-address-link" onClick={() => onOpenBasic(row)}>
-                    {row.jibun_address || "-"}
-                  </button>
-                </td>
-                <td className="center">{row.land_category_name || "-"}</td>
-                <td className="center">{row.purpose_area_name || "-"}</td>
-                <td className="right">{formatArea(row.area_sqm)}</td>
-                <td className="right">{formatNumber(row.price_current)}</td>
-                <td className="right">{formatNumber(row.estimated_total_price)}</td>
-                <td className="center">{row.price_year || "-"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </>
-  );
-}
-
-function MapRowsTable({
-  rows,
-  cacheHit,
-  loading,
-  onLoadRows,
-}: {
-  rows: LandResultRow[];
-  cacheHit: boolean;
-  loading: boolean;
-  onLoadRows: () => void;
-}) {
-  if (!rows.length) {
-    return (
-      <div className="map-empty">
-        <p className="map-empty-text">
-          {cacheHit ? "캐시 데이터에는 연도별 상세가 저장되지 않았습니다." : "연도별 상세 데이터가 없습니다."}
-        </p>
-        {cacheHit ? (
-          <button type="button" className="map-inline-action" onClick={onLoadRows} disabled={loading}>
-            {loading ? "조회 중..." : "연도별 공시지가 조회"}
-          </button>
-        ) : null}
-      </div>
-    );
-  }
-  return (
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>가격기준년도</th>
-          <th>토지소재지</th>
-          <th>지번</th>
-          <th>개별공시지가</th>
-          <th>기준일자</th>
-          <th>공시일자</th>
-          <th>비고</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, idx) => (
-          <tr key={`${row.토지소재지}-${row.기준년도}-${idx}`}>
-            <td>{row.기준년도}</td>
-            <td>{row.토지소재지}</td>
-            <td>{row.지번}</td>
-            <td>{row.개별공시지가}</td>
-            <td>{row.기준일자}</td>
-            <td>{row.공시일자}</td>
-            <td>{row.비고}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function rebuildZonePreview(zoneResult: MapZoneResponse, parcels: MapZoneResponse["parcels"]): MapZoneResponse {
-  const includedParcels = parcels.filter((item) => item.included);
-  const baseYearCandidates = includedParcels
-    .filter((item) => item.price_current !== null && item.price_year)
-    .map((item) => item.price_year as string);
-  const baseYear = baseYearCandidates.length > 0 ? baseYearCandidates.sort().at(-1) ?? null : null;
-  const countedParcels = includedParcels.filter(
-    (item) => item.price_current !== null && item.price_year !== null && item.price_year === baseYear,
-  );
-  const assessedTotalPrice = countedParcels.reduce((sum, item) => sum + (item.estimated_total_price ?? 0), 0);
-  const zoneAreaSqm = includedParcels.reduce((sum, item) => sum + (item.area_sqm ?? 0), 0);
-  const averageUnitPrice = zoneAreaSqm > 0 ? Math.round(assessedTotalPrice / zoneAreaSqm) : null;
-
-  const nextParcels = parcels.map((item) => ({
-    ...item,
-    counted_in_summary:
-      item.included && item.price_current !== null && item.price_year !== null && item.price_year === baseYear,
-  }));
-
-  return {
-    ...zoneResult,
-    summary: {
-      ...zoneResult.summary,
-      base_year: baseYear,
-      zone_area_sqm: Math.round(zoneAreaSqm * 100) / 100,
-      parcel_count: includedParcels.length,
-      counted_parcel_count: countedParcels.length,
-      excluded_parcel_count: parcels.length - includedParcels.length,
-      average_unit_price: averageUnitPrice,
-      assessed_total_price: assessedTotalPrice,
-      updated_at: new Date().toISOString(),
-    },
-    parcels: nextParcels,
-  };
-}
-
-function toPointKey(lat: number, lng: number): string {
-  return `${lat.toFixed(6)}:${lng.toFixed(6)}`;
-}
-
-function buildZonePointMarker(index: number, isFirst: boolean): HTMLDivElement {
-  const element = document.createElement("div");
-  element.className = `map-zone-point-marker ${isFirst ? "first" : ""}`;
-  element.innerHTML = `<span>${index}</span>`;
-  return element;
-}
-
-function parseParcelPolygonPaths(geometryGeojson: string, kakaoMaps: any): any[] {
-  if (!geometryGeojson || !kakaoMaps?.LatLng) return [];
-
-  try {
-    const geometry = JSON.parse(geometryGeojson) as { type?: string; coordinates?: unknown };
-    if (!geometry?.type || !geometry?.coordinates) return [];
-
-    if (geometry.type === "Polygon" && Array.isArray(geometry.coordinates)) {
-      const rings = buildPolygonRings(geometry.coordinates, kakaoMaps);
-      return rings.length > 0 ? [rings.length === 1 ? rings[0] : rings] : [];
-    }
-
-    if (geometry.type === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
-      const paths: any[] = [];
-      for (const polygon of geometry.coordinates) {
-        if (!Array.isArray(polygon)) continue;
-        const rings = buildPolygonRings(polygon, kakaoMaps);
-        if (rings.length > 0) {
-          paths.push(rings.length === 1 ? rings[0] : rings);
-        }
-      }
-      return paths;
-    }
-  } catch {
-    return [];
-  }
-
-  return [];
-}
-
-function buildPolygonRings(rawPolygon: unknown[], kakaoMaps: any): any[] {
-  const rings: any[] = [];
-  for (const rawRing of rawPolygon) {
-    if (!Array.isArray(rawRing)) continue;
-    const ring = rawRing
-      .map((point) => {
-        if (!Array.isArray(point) || point.length < 2) return null;
-        const lng = Number(point[0]);
-        const lat = Number(point[1]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        return new kakaoMaps.LatLng(lat, lng);
-      })
-      .filter(Boolean);
-    if (ring.length >= 3) {
-      rings.push(ring);
-    }
-  }
-  return rings;
-}
-
-function formatNumber(value: number | null): string {
-  if (value === null || value === undefined) return "-";
-  return value.toLocaleString("ko-KR");
-}
-
-function formatArea(value: number | null): string {
-  if (value === null || value === undefined) return "-";
-  return Number(value).toLocaleString("ko-KR", { maximumFractionDigits: 2 });
-}
-
-function formatRate(value: number | null): string {
-  if (value === null || value === undefined) return "-";
-  return `${value.toFixed(2)}%`;
-}
-
-function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
 async function loadKakaoMapSdk(appKey: string): Promise<void> {
   if (window.kakao?.maps?.Map && window.kakao?.maps?.load) return;
   const existing = document.getElementById(KAKAO_SDK_ID) as HTMLScriptElement | null;
@@ -1531,3 +1208,4 @@ function MapPageFallback() {
     </section>
   );
 }
+

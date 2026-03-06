@@ -2,10 +2,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
+import { apiFetch, buildMediaUrl, extractError, resolveApiBases, safeJson } from "@/app/lib/api-client";
 import type { AuthMode, AuthUser, UserTerms } from "@/app/lib/types";
-
-const DEFAULT_API_BASE = "http://127.0.0.1:8000";
-let preferredApiBase: string | null = null;
 
 type RecoveryPurpose = "signup" | "find_id" | "reset_password";
 type AuthMessageTone = "info" | "success" | "error";
@@ -174,7 +172,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           if (res.ok) {
             remoteSuccess = true;
-            preferredApiBase = base;
             break;
           }
         } catch {
@@ -363,92 +360,18 @@ export function useAuth() {
   return ctx;
 }
 
-function extractError(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
-  const detail = (payload as { detail?: unknown }).detail;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail) && detail.length > 0) {
-    const first = detail[0] as { msg?: unknown };
-    if (first && typeof first.msg === "string") return first.msg;
-  }
-  if (detail && typeof detail === "object") {
-    const message = (detail as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  return fallback;
-}
-
 function normalizeUser(user: AuthUser): AuthUser {
   if (!user.profile_image_url) return user;
   if (user.profile_image_url.startsWith("http://") || user.profile_image_url.startsWith("https://")) {
     return user;
   }
   if (!user.profile_image_url.startsWith("/")) return user;
-  const base = resolveApiBases()[0];
   return {
     ...user,
-    profile_image_url: `${base}${user.profile_image_url}`,
+    profile_image_url: buildMediaUrl(user.profile_image_url),
   };
 }
 
-function normalizeBase(base: string): string {
-  return base.replace(/\/+$/, "");
-}
-
-function resolveApiBases(): string[] {
-  const envBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  const bases: string[] = [];
-  const isBrowser = typeof window !== "undefined";
-  const hostname = isBrowser ? window.location.hostname.toLowerCase() : "";
-  const hasProxy = Boolean(envBase);
-  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local");
-
-  if (preferredApiBase) {
-    bases.push(normalizeBase(preferredApiBase));
-  }
-
-  if (isBrowser && hasProxy) {
-    bases.push(normalizeBase(window.location.origin));
-  }
-
-  if (envBase) bases.push(normalizeBase(envBase));
-
-  if (isBrowser && isLocalHost) {
-    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-    const hostBase = `${protocol}//${window.location.hostname}:8000`;
-    bases.push(normalizeBase(hostBase));
-    bases.push("http://localhost:8000");
-    bases.push(DEFAULT_API_BASE);
-  }
-
-  return Array.from(new Set(bases));
-}
-
 async function authFetch(path: string, init: RequestInit): Promise<Response> {
-  const bases = resolveApiBases();
-  let lastError: unknown = null;
-
-  for (const base of bases) {
-    try {
-      const response = await fetch(`${base}${path}`, {
-        ...init,
-        credentials: "include",
-      });
-      preferredApiBase = base;
-      return response;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  if (lastError instanceof Error) throw lastError;
-  throw new Error("API 연결 실패");
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return {};
-  }
+  return apiFetch(path, init, { rememberPreferredBase: true });
 }

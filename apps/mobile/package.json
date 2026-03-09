@@ -2,7 +2,7 @@
   "name": "autolv-mobile",
   "version": "2.2.0",
   "private": true,
-  "description": "autoLV Android wrapper app (Capacitor)",
+  "description": "PiljiLab Android wrapper app (Capacitor)",
   "main": "index.js",
   "scripts": {
     "cap:add:android": "npx cap add android",

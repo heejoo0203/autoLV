@@ -1,6 +1,6 @@
 {
   "appId": "com.autolv.app",
-  "appName": "autoLV",
+  "appName": "필지랩",
   "webDir": "www",
   "plugins": {
     "SplashScreen": {

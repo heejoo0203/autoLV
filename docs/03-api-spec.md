@@ -337,7 +337,7 @@
 
 ### GET `/bulk/template`
 설명:
-- 표준 양식(`autolv_bulk_template.xlsx`) 다운로드
+- 표준 양식(`piljilab_bulk_template.xlsx`) 다운로드
 
 ### POST `/bulk/jobs`
 요청:

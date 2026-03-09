@@ -1,7 +1,7 @@
-# autoLV Android Wrapper (Capacitor)
+# 필지랩 Android Wrapper (Capacitor)
 
 ## 개요
-- 앱 이름: `autoLV`
+- 앱 이름: `필지랩`
 - 패키지명: `com.autolv.app`
 - 웹 소스: `https://auto-lv.vercel.app`
 - 아이콘 소스: `docs/autoLV icon.jpg` -> `apps/mobile/assets/icon-only.jpg`

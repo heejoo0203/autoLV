@@ -1981,6 +1981,17 @@ body::before {
   margin-top: 18px;
 }
 
+.search-land-details {
+  margin-top: 18px;
+}
+
+.search-land-details-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
 .lab-empty-state {
   display: grid;
   gap: 8px;
@@ -2308,6 +2319,10 @@ body::before {
   .map-zone-action-row {
     grid-template-columns: 1fr 1fr 1fr;
   }
+
+  .search-land-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 860px) {
@@ -2333,6 +2348,7 @@ body::before {
 
   .search-form-grid,
   .search-metric-grid,
+  .search-land-details-grid,
   .map-side-metrics,
   .map-metrics,
   .lab-hero-panel-grid,

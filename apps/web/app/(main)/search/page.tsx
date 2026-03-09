@@ -8,7 +8,8 @@ import { useAuth } from "@/app/components/auth-provider";
 import { ROAD_INITIALS } from "@/app/lib/address";
 import { apiFetch, extractError, safeJson } from "@/app/lib/api-client";
 import { createSearchHistoryLog, fetchSearchHistoryDetail } from "@/app/lib/history-api";
-import type { LdMap, LandResultRow, SearchTab } from "@/app/lib/types";
+import { fetchMapLandDetails } from "@/app/lib/map-api";
+import type { LdMap, LandResultRow, MapLandDetailsResponse, SearchTab } from "@/app/lib/types";
 
 const SAN_OPTIONS = ["일반", "산"] as const;
 
@@ -80,6 +81,9 @@ function SearchPageClient() {
   const [message, setMessage] = useState("빠른 시작 예시를 선택하거나 주소를 입력해 바로 조회해 보세요.");
   const [rows, setRows] = useState<LandResultRow[]>([]);
   const [lookupPnu, setLookupPnu] = useState("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [showLandDetails, setShowLandDetails] = useState(false);
+  const [landDetails, setLandDetails] = useState<MapLandDetailsResponse | null>(null);
 
   const isLoggedIn = Boolean(user);
 
@@ -114,6 +118,8 @@ function SearchPageClient() {
         if (ignore) return;
         setRows(rec.rows ?? []);
         setLookupPnu(rec.pnu ?? "");
+        setLandDetails(null);
+        setShowLandDetails(false);
         setShowNoResult((rec.rows ?? []).length === 0);
         setMessage(`이력에서 선택한 주소 결과입니다: ${toDisplayAddress(rec.address_summary, rec.rows ?? [])}`);
       } catch (error) {
@@ -280,6 +286,8 @@ function SearchPageClient() {
       const text = error instanceof Error ? error.message : "조회 중 오류가 발생했습니다.";
       setRows([]);
       setLookupPnu("");
+      setLandDetails(null);
+      setShowLandDetails(false);
       setShowNoResult(false);
       setMessage(text);
     } finally {
@@ -309,6 +317,8 @@ function SearchPageClient() {
       const text = error instanceof Error ? error.message : "예시 조회 중 오류가 발생했습니다.";
       setRows([]);
       setLookupPnu("");
+      setLandDetails(null);
+      setShowLandDetails(false);
       setShowNoResult(false);
       setMessage(text);
     } finally {
@@ -363,6 +373,8 @@ function SearchPageClient() {
     const nextRows = okPayload.rows ?? [];
     setRows(nextRows);
     setLookupPnu(okPayload.pnu ?? "");
+    setLandDetails(null);
+    setShowLandDetails(false);
     setShowNoResult(nextRows.length === 0);
     const summary = okPayload.address_summary || fallbackSummary;
     setMessage(`검색 완료: ${summary} (총 ${nextRows.length}건)`);
@@ -376,6 +388,37 @@ function SearchPageClient() {
       }).catch(() => {
         // 조회 자체는 성공했으므로 저장 실패는 흐름을 막지 않는다.
       });
+    }
+  };
+
+  const loadLandDetails = async (): Promise<MapLandDetailsResponse | null> => {
+    if (!lookupPnu) return null;
+    setDetailLoading(true);
+    try {
+      const details = await fetchMapLandDetails(lookupPnu);
+      setLandDetails(details);
+      setMessage("토지특성 상세 정보를 불러왔습니다.");
+      return details;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "토지특성 상세 조회에 실패했습니다.");
+      return null;
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const toggleLandDetails = async () => {
+    if (showLandDetails) {
+      setShowLandDetails(false);
+      return;
+    }
+    if (landDetails) {
+      setShowLandDetails(true);
+      return;
+    }
+    const details = await loadLandDetails();
+    if (details) {
+      setShowLandDetails(true);
     }
   };
 
@@ -663,6 +706,9 @@ function SearchPageClient() {
                   <article className="lab-info-card">
                     <h3>다음 액션</h3>
                     <div className="lab-action-stack">
+                      <button type="button" className="lab-card-link secondary" onClick={() => void toggleLandDetails()} disabled={!lookupPnu || detailLoading}>
+                        {detailLoading ? "토지특성 불러오는 중..." : showLandDetails ? "토지특성 닫기" : "토지특성 보기"}
+                      </button>
                       {isLoggedIn ? (
                         <>
                           <Link href={lookupPnu ? `/map?pnu=${encodeURIComponent(lookupPnu)}` : "/map"} className="lab-card-link">
@@ -695,6 +741,36 @@ function SearchPageClient() {
                   </article>
                 </div>
               </div>
+
+              {showLandDetails && landDetails ? (
+                <section className="search-land-details">
+                  <article className="lab-info-card">
+                    <h3>토지특성</h3>
+                    <div className="search-land-details-grid">
+                      <article className="lab-metric-card">
+                        <span>상세 기준연도</span>
+                        <strong>{landDetails.stdr_year || "-"}</strong>
+                      </article>
+                      <article className="lab-metric-card">
+                        <span>토지면적(㎡)</span>
+                        <strong>{landDetails.area === null ? "-" : landDetails.area.toLocaleString("ko-KR")}</strong>
+                      </article>
+                      <article className="lab-metric-card">
+                        <span>지목</span>
+                        <strong>{landDetails.land_category_name || "-"}</strong>
+                      </article>
+                      <article className="lab-metric-card">
+                        <span>용도지역명</span>
+                        <strong>{landDetails.purpose_area_name || "-"}</strong>
+                      </article>
+                      <article className="lab-metric-card">
+                        <span>용도지구명</span>
+                        <strong>{landDetails.purpose_district_name || "-"}</strong>
+                      </article>
+                    </div>
+                  </article>
+                </section>
+              ) : null}
 
               <div className="search-detail-table">
                 <table className="data-table mobile-card-table">

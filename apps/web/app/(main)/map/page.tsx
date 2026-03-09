@@ -128,6 +128,7 @@ function MapPageClient() {
   const [message, setMessage] = useState("지도를 클릭하면 해당 필지의 공시지가를 조회합니다.");
   const [result, setResult] = useState<MapLookupResponse | null>(null);
   const [landDetails, setLandDetails] = useState<MapLandDetailsResponse | null>(null);
+  const [showLandDetails, setShowLandDetails] = useState(false);
 
   const isLoggedIn = Boolean(user);
 
@@ -635,6 +636,7 @@ function MapPageClient() {
   ) => {
     setResult(payload);
     setLandDetails(null);
+    setShowLandDetails(false);
     setMarker(payload.lat, payload.lng);
     moveMapCenter(payload.lat, payload.lng);
     lastResolvedKeyRef.current = toPointKey(payload.lat, payload.lng);
@@ -830,8 +832,8 @@ function MapPageClient() {
     });
   };
 
-  const loadLandDetails = async () => {
-    if (!result?.pnu) return;
+  const loadLandDetails = async (): Promise<MapLandDetailsResponse | null> => {
+    if (!result?.pnu) return null;
     setDetailLoading(true);
     try {
       const details = await fetchMapLandDetails(result.pnu);
@@ -840,10 +842,28 @@ function MapPageClient() {
         setResult((prev) => (prev ? { ...prev, area: details.area } : prev));
       }
       setMessage("토지특성 상세 정보를 불러왔습니다.");
+      return details;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "토지특성 상세 조회에 실패했습니다.");
+      return null;
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const toggleLandDetails = async () => {
+    if (showLandDetails) {
+      setShowLandDetails(false);
+      setMessage("토지특성 상세 정보를 닫았습니다.");
+      return;
+    }
+    if (landDetails) {
+      setShowLandDetails(true);
+      return;
+    }
+    const details = await loadLandDetails();
+    if (details) {
+      setShowLandDetails(true);
     }
   };
 
@@ -1011,9 +1031,6 @@ function MapPageClient() {
                   <button type="button" className="lab-btn lab-btn-secondary" onClick={() => void loadYearlyRows()} disabled={!result?.pnu || yearlyLoading}>
                     {yearlyLoading ? "불러오는 중..." : "연도별 이력"}
                   </button>
-                  <button type="button" className="lab-btn lab-btn-secondary" onClick={() => void loadLandDetails()} disabled={!result?.pnu || detailLoading}>
-                    {detailLoading ? "조회 중..." : "토지특성"}
-                  </button>
                   <button type="button" className="lab-btn lab-btn-tertiary" onClick={() => void downloadCsv()} disabled={!result?.pnu}>
                     CSV
                   </button>
@@ -1136,9 +1153,14 @@ function MapPageClient() {
             </div>
             <div className="map-bottom-actions">
               {viewMode === "basic" && result ? (
-                <button type="button" className="lab-btn lab-btn-tertiary compact" onClick={() => void downloadCsv()}>
-                  CSV 내보내기
-                </button>
+                <>
+                  <button type="button" className="lab-btn lab-btn-secondary compact" onClick={() => void toggleLandDetails()} disabled={detailLoading}>
+                    {detailLoading ? "불러오는 중..." : showLandDetails ? "토지특성 닫기" : "토지특성 열기"}
+                  </button>
+                  <button type="button" className="lab-btn lab-btn-tertiary compact" onClick={() => void downloadCsv()}>
+                    CSV 내보내기
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
@@ -1167,7 +1189,7 @@ function MapPageClient() {
                   좌표 {result.lat.toFixed(6)}, {result.lng.toFixed(6)} · 데이터 소스 {result.cache_hit ? "DB 캐시" : "실시간"}
                 </div>
 
-                {landDetails ? (
+                {showLandDetails && landDetails ? (
                   <div className="map-metrics map-detail-grid">
                     <MetricCard label="상세 기준연도" value={landDetails.stdr_year || "-"} />
                     <MetricCard label="지목" value={landDetails.land_category_name || "-"} />

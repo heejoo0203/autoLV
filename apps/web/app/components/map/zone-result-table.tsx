@@ -65,19 +65,21 @@ export function ZoneResultTable({
 }) {
   const [expandedPnuSet, setExpandedPnuSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<"all" | "included" | "boundary" | "excluded">("all");
-
-  if (!zoneResult) {
-    return <div className="map-empty">구역 좌표를 선택하고 `구역 분석`을 실행해 주세요.</div>;
-  }
-
-  const { summary, parcels } = zoneResult;
-  const overlapPercent = Math.round((summary.overlap_threshold || 0.9) * 100);
+  const previewSummary = zoneResult?.summary ?? null;
+  const parcels = zoneResult?.parcels ?? [];
+  const overlapPercent = Math.round(((previewSummary?.overlap_threshold ?? 0.9) || 0.9) * 100);
   const visibleParcels = useMemo(() => {
     if (filterMode === "included") return parcels.filter((row) => row.included);
     if (filterMode === "boundary") return parcels.filter((row) => row.inclusion_mode === "boundary_candidate");
     if (filterMode === "excluded") return parcels.filter((row) => !row.included && row.inclusion_mode !== "boundary_candidate");
     return parcels;
   }, [filterMode, parcels]);
+
+  if (!zoneResult) {
+    return <div className="map-empty">구역 좌표를 선택하고 `구역 분석`을 실행해 주세요.</div>;
+  }
+
+  const summary = zoneResult.summary;
 
   const toggleExpanded = (pnu: string) => {
     setExpandedPnuSet((prev) => {

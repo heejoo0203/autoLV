@@ -1909,11 +1909,22 @@ body::before {
   margin-top: 16px;
   padding: 16px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   border-radius: 16px;
   background: var(--lab-bg-muted);
+}
+
+.search-inline-inputs {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.search-inline-inputs.road {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
 .search-inline-label {
@@ -1926,6 +1937,7 @@ body::before {
   color: var(--lab-ink-soft);
   font-size: 20px;
   font-weight: 700;
+  text-align: center;
 }
 
 .search-form-actions {
@@ -2124,6 +2136,11 @@ body::before {
 
 .mypage-card-pro .auth-input {
   min-height: 52px;
+}
+
+.files-hero-shell,
+.history-hero-shell {
+  align-items: start;
 }
 
 .map-stage-column {
@@ -2328,9 +2345,18 @@ body::before {
     align-items: stretch;
   }
 
+  .search-inline-inputs,
+  .search-inline-inputs.road {
+    grid-template-columns: 1fr;
+  }
+
   .search-inline-label,
   .search-inline-sep {
     min-width: 0;
+  }
+
+  .search-inline-sep {
+    display: none;
   }
 
   .map-frame {

@@ -219,18 +219,20 @@ export default function HistoryPage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="history-shell">
-        <section className="history-hero hero-grid">
-          <div>
-            <span className="eyebrow">History Archive</span>
-            <h1 className="hero-title">필지랩에서 수행한 조회 흐름을 기록 단위로 다시 불러옵니다.</h1>
-            <p className="hero-copy">로그인하면 개별조회와 지도조회 결과를 저장하고, 필터·정렬·선택 삭제까지 같은 화면에서 처리할 수 있습니다.</p>
+      <div className="lab-page history-shell">
+        <section className="lab-hero history-hero-shell">
+          <div className="lab-hero-copy">
+            <span className="lab-eyebrow">History Archive</span>
+            <h1>필지랩에서 수행한 조회 흐름을 기록 단위로 다시 불러옵니다.</h1>
+            <p>로그인하면 개별조회와 지도조회 결과를 저장하고, 필터·정렬·선택 삭제까지 같은 화면에서 처리할 수 있습니다.</p>
           </div>
         </section>
-        <section className="panel">
-          <h2>조회기록은 로그인 후 확인할 수 있습니다.</h2>
-          <p className="hint">로그인 후 기록을 저장하고, 같은 필지를 다시 열어 개별조회 또는 지도조회 결과를 복원할 수 있습니다.</p>
-          <button className="btn-primary" onClick={() => openAuth("login")}>
+        <section className="lab-surface">
+          <div className="lab-section-head">
+            <h2>조회기록은 로그인 후 확인할 수 있습니다.</h2>
+            <p>로그인 후 기록을 저장하고, 같은 필지를 다시 열어 개별조회 또는 지도조회 결과를 복원할 수 있습니다.</p>
+          </div>
+          <button className="lab-btn lab-btn-primary" onClick={() => openAuth("login")}>
             로그인하고 조회기록 보기
           </button>
         </section>
@@ -239,26 +241,26 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="history-shell">
-      <section className="history-hero hero-grid">
-        <div>
-          <span className="eyebrow">History Archive</span>
-          <h1 className="hero-title">조회 흐름을 저장하고, 필요한 시점에 그대로 복원합니다.</h1>
-          <p className="hero-copy">
+    <div className="lab-page history-shell">
+      <section className="lab-hero history-hero-shell">
+        <div className="lab-hero-copy">
+          <span className="lab-eyebrow">History Archive</span>
+          <h1>조회 흐름을 저장하고, 필요한 시점에 그대로 복원합니다.</h1>
+          <p>
             개별조회와 지도조회 결과를 유형·지역·정렬 기준으로 다시 필터링하고, 기록에서 바로 원래 화면으로 이동할 수 있습니다.
           </p>
         </div>
-        <div className="hero-stat-grid">
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">누적 기록</div>
-            <div className="hero-stat-value">{records.length}</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">현재 필터</div>
-            <div className="hero-stat-value small">
+        <div className="lab-hero-panel-grid">
+          <article className="lab-mini-card">
+            <span>누적 기록</span>
+            <strong>{records.length}</strong>
+          </article>
+          <article className="lab-mini-card">
+            <span>현재 필터</span>
+            <strong>
               {searchTypeFilter === "all" ? "전체" : toSearchTypeLabel(searchTypeFilter)}
-            </div>
-          </div>
+            </strong>
+          </article>
         </div>
       </section>
 

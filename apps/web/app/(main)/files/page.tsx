@@ -195,32 +195,34 @@ export default function FilesPage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="files-shell">
-        <section className="files-hero hero-grid">
-          <div>
-            <span className="eyebrow">Bulk Processing</span>
-            <h1 className="hero-title">대량 주소 파일을 정리된 파이프라인으로 처리합니다.</h1>
-            <p className="hero-copy">
+      <div className="lab-page files-shell">
+        <section className="lab-hero files-hero-shell">
+          <div className="lab-hero-copy">
+            <span className="lab-eyebrow">Bulk Processing</span>
+            <h1>대량 주소 파일을 정리된 파이프라인으로 처리합니다.</h1>
+            <p>
               필지랩 파일조회는 엑셀/CSV의 주소 열을 해석해 비동기 작업으로 처리하고, 결과 파일과 작업 이력을 함께
               관리합니다.
             </p>
           </div>
-          <div className="hero-stat-grid">
-            <div className="hero-stat-card">
-              <div className="hero-stat-label">처리 방식</div>
-              <div className="hero-stat-value small">비동기 작업 큐 + 결과 파일 다운로드</div>
-            </div>
-            <div className="hero-stat-card">
-              <div className="hero-stat-label">권장 용도</div>
-              <div className="hero-stat-value small">대량 물건 조사, 후보지 스크리닝, 내부 검토용 목록 생성</div>
-            </div>
+          <div className="lab-hero-panel-grid">
+            <article className="lab-mini-card">
+              <span>처리 방식</span>
+              <strong>비동기 작업 큐 + 결과 다운로드</strong>
+            </article>
+            <article className="lab-mini-card">
+              <span>권장 용도</span>
+              <strong>대량 물건 조사 · 후보지 스크리닝</strong>
+            </article>
           </div>
         </section>
 
-        <section className="panel">
-          <h2>파일조회는 로그인 후 사용할 수 있습니다.</h2>
-          <p className="hint">계정으로 로그인하면 파일 업로드, 작업 이력 관리, 결과 다운로드 기능이 활성화됩니다.</p>
-          <button className="btn-primary" onClick={() => openAuth("login")}>
+        <section className="lab-surface">
+          <div className="lab-section-head">
+            <h2>파일조회는 로그인 후 사용할 수 있습니다.</h2>
+            <p>로그인하면 파일 업로드, 작업 이력 관리, 결과 다운로드 기능이 활성화됩니다.</p>
+          </div>
+          <button className="lab-btn lab-btn-primary" onClick={() => openAuth("login")}>
             로그인하고 파일조회 사용하기
           </button>
         </section>
@@ -229,32 +231,32 @@ export default function FilesPage() {
   }
 
   return (
-    <div className="files-shell">
-      <section className="files-hero hero-grid">
-        <div>
-          <span className="eyebrow">Bulk Processing</span>
-          <h1 className="hero-title">표준 양식부터 작업 이력까지, 대량 조회 흐름을 한 번에 관리합니다.</h1>
-          <p className="hero-copy">
+    <div className="lab-page files-shell">
+      <section className="lab-hero files-hero-shell">
+        <div className="lab-hero-copy">
+          <span className="lab-eyebrow">Bulk Processing</span>
+          <h1>표준 양식부터 작업 이력까지, 대량 조회 흐름을 한 번에 관리합니다.</h1>
+          <p>
             권장 컬럼 구조를 안내하고, 업로드된 파일은 비동기로 처리해 진행률과 결과 다운로드를 분리 관리합니다.
           </p>
         </div>
-        <div className="hero-stat-grid">
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">최대 처리량</div>
-            <div className="hero-stat-value">{guide ? `${guide.max_rows.toLocaleString()}행` : "10,000행"}</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">주소 해석</div>
-            <div className="hero-stat-value small">지번 · 도로명 · 자동 매핑</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">최근 작업</div>
-            <div className="hero-stat-value small">{latestJob ? latestJob.file_name : "아직 작업 없음"}</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">실행 상태</div>
-            <div className="hero-stat-value small">{hasRunningJob ? "처리 진행 중" : "대기 중"}</div>
-          </div>
+        <div className="lab-hero-panel-grid">
+          <article className="lab-mini-card">
+            <span>최대 처리량</span>
+            <strong>{guide ? `${guide.max_rows.toLocaleString()}행` : "10,000행"}</strong>
+          </article>
+          <article className="lab-mini-card">
+            <span>주소 해석</span>
+            <strong>지번 · 도로명 · 자동 매핑</strong>
+          </article>
+          <article className="lab-mini-card">
+            <span>최근 작업</span>
+            <strong>{latestJob ? latestJob.file_name : "아직 작업 없음"}</strong>
+          </article>
+          <article className="lab-mini-card">
+            <span>실행 상태</span>
+            <strong>{hasRunningJob ? "처리 진행 중" : "대기 중"}</strong>
+          </article>
         </div>
       </section>
 

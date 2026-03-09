@@ -568,23 +568,27 @@ function SearchPageClient() {
           {searchTab === "지번" ? (
             <div className="search-inline-card">
               <div className="search-inline-label">지번</div>
-              <select className="lab-input compact fit" value={sanType} onChange={(e) => setSanType(e.target.value as (typeof SAN_OPTIONS)[number])}>
-                {SAN_OPTIONS.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <input className="lab-input compact" value={mainNo} onChange={(e) => setMainNo(e.target.value)} placeholder="본번" />
-              <span className="search-inline-sep">-</span>
-              <input className="lab-input compact" value={subNo} onChange={(e) => setSubNo(e.target.value)} placeholder="부번" />
+              <div className="search-inline-inputs">
+                <select className="lab-input compact" value={sanType} onChange={(e) => setSanType(e.target.value as (typeof SAN_OPTIONS)[number])}>
+                  {SAN_OPTIONS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <input className="lab-input compact" value={mainNo} onChange={(e) => setMainNo(e.target.value)} placeholder="본번" />
+                <span className="search-inline-sep">-</span>
+                <input className="lab-input compact" value={subNo} onChange={(e) => setSubNo(e.target.value)} placeholder="부번" />
+              </div>
             </div>
           ) : (
             <div className="search-inline-card">
               <div className="search-inline-label">건물번호</div>
-              <input className="lab-input compact" value={buildingMainNo} onChange={(e) => setBuildingMainNo(e.target.value)} placeholder="본번" />
-              <span className="search-inline-sep">-</span>
-              <input className="lab-input compact" value={buildingSubNo} onChange={(e) => setBuildingSubNo(e.target.value)} placeholder="부번" />
+              <div className="search-inline-inputs road">
+                <input className="lab-input compact" value={buildingMainNo} onChange={(e) => setBuildingMainNo(e.target.value)} placeholder="본번" />
+                <span className="search-inline-sep">-</span>
+                <input className="lab-input compact" value={buildingSubNo} onChange={(e) => setBuildingSubNo(e.target.value)} placeholder="부번" />
+              </div>
             </div>
           )}
 

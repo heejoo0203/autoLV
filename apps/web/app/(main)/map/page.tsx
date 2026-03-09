@@ -85,6 +85,7 @@ function MapPageClient() {
   const params = useSearchParams();
   const recordId = params.get("recordId");
   const zoneId = params.get("zoneId");
+  const pnu = params.get("pnu");
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapFrameRef = useRef<HTMLDivElement | null>(null);
@@ -99,6 +100,7 @@ function MapPageClient() {
   const lastResolvedKeyRef = useRef<string>("");
   const loadedRecordIdRef = useRef<string>("");
   const loadedZoneIdRef = useRef<string>("");
+  const loadedPnuRef = useRef<string>("");
   const modeRef = useRef<"basic" | "zone">("basic");
 
   const [viewMode, setViewMode] = useState<"basic" | "zone">("basic");
@@ -217,6 +219,33 @@ function MapPageClient() {
       clearZoneParcelHighlights();
     };
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!pnu || !isLoggedIn) return;
+    if (loadedPnuRef.current === pnu) return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const payload = await fetchMapLookupByPnu(pnu);
+        if (cancelled) return;
+        loadedPnuRef.current = pnu;
+        setViewMode("basic");
+        applyLookupResult(payload, {
+          persistHistory: false,
+          customMessage: "개별조회 결과에서 지도 기본조회로 이어졌습니다.",
+        });
+      } catch (error) {
+        if (cancelled) return;
+        setMessage(error instanceof Error ? error.message : "개별조회 결과를 지도에서 불러오지 못했습니다.");
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [pnu, isLoggedIn]);
 
   useEffect(() => {
     if (!recordId || !isLoggedIn) return;

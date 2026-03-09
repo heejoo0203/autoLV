@@ -79,6 +79,7 @@ function SearchPageClient() {
 
   const [message, setMessage] = useState("빠른 시작 예시를 선택하거나 주소를 입력해 바로 조회해 보세요.");
   const [rows, setRows] = useState<LandResultRow[]>([]);
+  const [lookupPnu, setLookupPnu] = useState("");
 
   const isLoggedIn = Boolean(user);
 
@@ -112,6 +113,7 @@ function SearchPageClient() {
         const rec = await fetchSearchHistoryDetail(recordId);
         if (ignore) return;
         setRows(rec.rows ?? []);
+        setLookupPnu(rec.pnu ?? "");
         setShowNoResult((rec.rows ?? []).length === 0);
         setMessage(`이력에서 선택한 주소 결과입니다: ${toDisplayAddress(rec.address_summary, rec.rows ?? [])}`);
       } catch (error) {
@@ -277,6 +279,7 @@ function SearchPageClient() {
     } catch (error) {
       const text = error instanceof Error ? error.message : "조회 중 오류가 발생했습니다.";
       setRows([]);
+      setLookupPnu("");
       setShowNoResult(false);
       setMessage(text);
     } finally {
@@ -305,6 +308,7 @@ function SearchPageClient() {
     } catch (error) {
       const text = error instanceof Error ? error.message : "예시 조회 중 오류가 발생했습니다.";
       setRows([]);
+      setLookupPnu("");
       setShowNoResult(false);
       setMessage(text);
     } finally {
@@ -358,6 +362,7 @@ function SearchPageClient() {
     const okPayload = payload as LandLookupApiResponse;
     const nextRows = okPayload.rows ?? [];
     setRows(nextRows);
+    setLookupPnu(okPayload.pnu ?? "");
     setShowNoResult(nextRows.length === 0);
     const summary = okPayload.address_summary || fallbackSummary;
     setMessage(`검색 완료: ${summary} (총 ${nextRows.length}건)`);
@@ -656,7 +661,7 @@ function SearchPageClient() {
                     <div className="lab-action-stack">
                       {isLoggedIn ? (
                         <>
-                          <Link href="/map" className="lab-card-link">
+                          <Link href={lookupPnu ? `/map?pnu=${encodeURIComponent(lookupPnu)}` : "/map"} className="lab-card-link">
                             지도에서 이어서 보기
                           </Link>
                           <Link href="/history" className="lab-card-link secondary">

@@ -22,6 +22,8 @@ class BuildingRegisterCache(Base):
     total_floor_area_sqm: Mapped[float | None] = mapped_column(Float, nullable=True)
     site_area_sqm: Mapped[float | None] = mapped_column(Float, nullable=True)
     floor_area_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    building_coverage_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    household_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     primary_purpose_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     synced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), index=True

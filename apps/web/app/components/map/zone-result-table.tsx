@@ -1,8 +1,28 @@
 "use client";
 
+import { Fragment, useState } from "react";
+
 import { MetricCard } from "@/app/components/map/metric-card";
 import { formatArea, formatNumber } from "@/app/lib/map-view-utils";
 import type { MapZoneResponse } from "@/app/lib/types";
+
+function formatPercent(value: number | null): string {
+  if (value === null || value === undefined) return "-";
+  return `${value.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}%`;
+}
+
+function getParcelAgedLabel(parcel: MapZoneResponse["parcels"][number]): string {
+  if (!parcel.building_count) return "-";
+  return parcel.aged_building_count > 0 ? "노후" : "일반";
+}
+
+function getParcelAgeDisplay(parcel: MapZoneResponse["parcels"][number]): string {
+  if (!parcel.building_count) return "-";
+  if (parcel.average_approval_year) {
+    return `${parcel.average_approval_year} · ${getParcelAgedLabel(parcel)}`;
+  }
+  return getParcelAgedLabel(parcel);
+}
 
 export function ZoneResultTable({
   zoneResult,
@@ -17,12 +37,27 @@ export function ZoneResultTable({
   onLocate: (lat: number | null, lng: number | null) => void;
   onOpenBasic: (parcel: MapZoneResponse["parcels"][number]) => void;
 }) {
+  const [expandedPnuSet, setExpandedPnuSet] = useState<Set<string>>(new Set());
+
   if (!zoneResult) {
     return <div className="map-empty">구역 좌표를 선택하고 `구역 분석`을 실행해 주세요.</div>;
   }
 
   const { summary, parcels } = zoneResult;
   const overlapPercent = Math.round((summary.overlap_threshold || 0.9) * 100);
+
+  const toggleExpanded = (pnu: string) => {
+    setExpandedPnuSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(pnu)) {
+        next.delete(pnu);
+      } else {
+        next.add(pnu);
+      }
+      return next;
+    });
+  };
+
   return (
     <>
       <div className="map-metrics">
@@ -50,50 +85,103 @@ export function ZoneResultTable({
             <tr>
               <th className="center narrow">선택</th>
               <th className="address-col">지번 주소</th>
-              <th className="center">지목</th>
               <th className="center">용도지역명</th>
               <th className="center">주용도</th>
-              <th className="center narrow">건축물 수</th>
-              <th className="center narrow">노후 건물 수</th>
-              <th className="center">사용승인년도</th>
-              <th className="right">용적률(%)</th>
-              <th className="right">면적(㎡)</th>
+              <th className="right">대지면적(㎡)</th>
               <th className="right">공시지가(원/㎡)</th>
-              <th className="right">면적×공시지가</th>
-              <th className="center narrow">연도</th>
+              <th className="right">총 공시지가</th>
+              <th className="right">전년 대비 증감률(%)</th>
+              <th className="center">건물연식/노후</th>
+              <th className="right">노후도(%)</th>
+              <th className="right">현재 용적률(%)</th>
+              <th className="center narrow">상세</th>
             </tr>
           </thead>
           <tbody>
             {parcels.map((row) => {
               const selected = selectedPnuSet.has(row.pnu);
+              const expanded = expandedPnuSet.has(row.pnu);
               return (
-                <tr key={row.pnu} className={!row.included ? "excluded" : ""} onClick={() => onLocate(row.lat, row.lng)}>
-                  <td className="center" data-label="선택" onClick={(event) => event.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      disabled={!row.included}
-                      onChange={(event) => onSelect(row.pnu, event.target.checked)}
-                      aria-label={`필지 선택 ${row.pnu}`}
-                    />
-                  </td>
-                  <td className="address-col" data-label="지번 주소" onClick={(event) => event.stopPropagation()}>
-                    <button type="button" className="map-address-link" onClick={() => onOpenBasic(row)}>
-                      {row.jibun_address || "-"}
-                    </button>
-                  </td>
-                  <td className="center" data-label="지목">{row.land_category_name || "-"}</td>
-                  <td className="center" data-label="용도지역명">{row.purpose_area_name || "-"}</td>
-                  <td className="center" data-label="주용도">{row.primary_purpose_name || "-"}</td>
-                  <td className="center" data-label="건축물 수">{formatNumber(row.building_count)}</td>
-                  <td className="center" data-label="노후 건물 수">{formatNumber(row.aged_building_count)}</td>
-                  <td className="center" data-label="사용승인년도">{row.average_approval_year || "-"}</td>
-                  <td className="right" data-label="용적률(%)">{formatNumber(row.floor_area_ratio)}</td>
-                  <td className="right" data-label="면적(㎡)">{formatArea(row.area_sqm)}</td>
-                  <td className="right" data-label="공시지가(원/㎡)">{formatNumber(row.price_current)}</td>
-                  <td className="right" data-label="면적×공시지가">{formatNumber(row.estimated_total_price)}</td>
-                  <td className="center" data-label="연도">{row.price_year || "-"}</td>
-                </tr>
+                <Fragment key={row.pnu}>
+                  <tr className={!row.included ? "excluded" : ""} onClick={() => onLocate(row.lat, row.lng)}>
+                    <td className="center" data-label="선택" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={!row.included}
+                        onChange={(event) => onSelect(row.pnu, event.target.checked)}
+                        aria-label={`필지 선택 ${row.pnu}`}
+                      />
+                    </td>
+                    <td className="address-col" data-label="지번 주소" onClick={(event) => event.stopPropagation()}>
+                      <button type="button" className="map-address-link" onClick={() => onOpenBasic(row)}>
+                        {row.jibun_address || "-"}
+                      </button>
+                    </td>
+                    <td className="center" data-label="용도지역명">{row.purpose_area_name || "-"}</td>
+                    <td className="center" data-label="주용도">{row.primary_purpose_name || "-"}</td>
+                    <td className="right" data-label="대지면적(㎡)">{formatArea(row.site_area_sqm ?? row.area_sqm)}</td>
+                    <td className="right" data-label="공시지가(원/㎡)">{formatNumber(row.price_current)}</td>
+                    <td className="right" data-label="총 공시지가">{formatNumber(row.estimated_total_price)}</td>
+                    <td className="right" data-label="전년 대비 증감률(%)">{formatPercent(row.growth_rate)}</td>
+                    <td className="center" data-label="건물연식/노후">{getParcelAgeDisplay(row)}</td>
+                    <td className="right" data-label="노후도(%)">{formatPercent(row.aged_building_ratio)}</td>
+                    <td className="right" data-label="현재 용적률(%)">{formatPercent(row.floor_area_ratio)}</td>
+                    <td className="center" data-label="상세" onClick={(event) => event.stopPropagation()}>
+                      <button type="button" className="map-inline-detail-btn" onClick={() => toggleExpanded(row.pnu)}>
+                        {expanded ? "닫기" : "열기"}
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded ? (
+                    <tr className="map-zone-detail-row">
+                      <td colSpan={12}>
+                        <div className="map-zone-detail-grid">
+                          <div className="map-zone-detail-item">
+                            <span>지목</span>
+                            <strong>{row.land_category_name || "-"}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>사용승인년도</span>
+                            <strong>{row.average_approval_year || "-"}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>건축물 수</span>
+                            <strong>{formatNumber(row.building_count)}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>노후 건물 수</span>
+                            <strong>{formatNumber(row.aged_building_count)}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>연도</span>
+                            <strong>{row.price_year || "-"}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>연면적(㎡)</span>
+                            <strong>{formatArea(row.total_floor_area_sqm)}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>건폐율(%)</span>
+                            <strong>{formatPercent(row.building_coverage_ratio)}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>세대수/가구수</span>
+                            <strong>{row.household_count === null ? "-" : formatNumber(row.household_count)}</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>법적 상한 용적률</span>
+                            <strong>-</strong>
+                          </div>
+                          <div className="map-zone-detail-item">
+                            <span>잔여 용적률</span>
+                            <strong>-</strong>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               );
             })}
           </tbody>

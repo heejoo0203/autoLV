@@ -31,8 +31,14 @@ class ZoneParcelComputed:
     building_count: int = 0
     aged_building_count: int = 0
     average_approval_year: int | None = None
+    price_previous: int | None = None
+    growth_rate: float | None = None
+    aged_building_ratio: float | None = None
+    site_area_sqm: float | None = None
     total_floor_area_sqm: float | None = None
     floor_area_ratio: float | None = None
+    building_coverage_ratio: float | None = None
+    household_count: int | None = None
     primary_purpose_name: str | None = None
 
 

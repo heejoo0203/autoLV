@@ -173,9 +173,14 @@ export type MapZoneParcelItem = {
   building_count: number;
   aged_building_count: number;
   average_approval_year: number | null;
+  price_previous: number | null;
+  growth_rate: number | null;
+  aged_building_ratio: number | null;
   site_area_sqm: number | null;
   total_floor_area_sqm: number | null;
   floor_area_ratio: number | null;
+  building_coverage_ratio: number | null;
+  household_count: number | null;
   primary_purpose_name: string | null;
 };
 

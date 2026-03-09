@@ -25,7 +25,7 @@ export function rebuildZonePreview(zoneResult: MapZoneResponse, parcels: MapZone
   const totalSiteAreaSqm = includedParcels.reduce((sum, item) => sum + (item.site_area_sqm ?? 0), 0);
   const averageFloorAreaRatio =
     totalSiteAreaSqm > 0 && totalFloorAreaSqm > 0 ? Number(((totalFloorAreaSqm / totalSiteAreaSqm) * 100).toFixed(2)) : null;
-  const undersizedParcelCount = includedParcels.filter((item) => (item.area_sqm ?? 0) < 150).length;
+  const undersizedParcelCount = includedParcels.filter((item) => (item.area_sqm ?? 0) < 90).length;
   const undersizedParcelRatio =
     includedParcels.length > 0 ? Number(((undersizedParcelCount / includedParcels.length) * 100).toFixed(2)) : null;
   const agedBuildingRatio =

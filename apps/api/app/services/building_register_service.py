@@ -35,6 +35,8 @@ class BuildingRegisterMetrics:
     total_floor_area_sqm: float | None = None
     site_area_sqm: float | None = None
     floor_area_ratio: float | None = None
+    building_coverage_ratio: float | None = None
+    household_count: int | None = None
     primary_purpose_name: str | None = None
 
 
@@ -136,6 +138,8 @@ def fetch_building_register_metrics_batch(
             existing.total_floor_area_sqm = row.total_floor_area_sqm
             existing.site_area_sqm = row.site_area_sqm
             existing.floor_area_ratio = row.floor_area_ratio
+            existing.building_coverage_ratio = row.building_coverage_ratio
+            existing.household_count = row.household_count
             existing.primary_purpose_name = row.primary_purpose_name
             existing.synced_at = row.synced_at
             existing.updated_at = row.updated_at
@@ -185,6 +189,8 @@ def _cache_row_to_metrics(row: BuildingRegisterCache) -> BuildingRegisterMetrics
         total_floor_area_sqm=row.total_floor_area_sqm,
         site_area_sqm=row.site_area_sqm,
         floor_area_ratio=row.floor_area_ratio,
+        building_coverage_ratio=row.building_coverage_ratio,
+        household_count=row.household_count,
         primary_purpose_name=row.primary_purpose_name,
     )
 
@@ -202,6 +208,8 @@ def _metrics_to_cache_row(metrics: BuildingRegisterMetrics, *, now: datetime) ->
         total_floor_area_sqm=metrics.total_floor_area_sqm,
         site_area_sqm=metrics.site_area_sqm,
         floor_area_ratio=metrics.floor_area_ratio,
+        building_coverage_ratio=metrics.building_coverage_ratio,
+        household_count=metrics.household_count,
         primary_purpose_name=metrics.primary_purpose_name,
         synced_at=now,
         updated_at=now,
@@ -232,8 +240,11 @@ def _fetch_building_register_metrics_for_pnu(pnu: str, parcel_area_sqm: float | 
     purpose_names: list[str] = []
     total_floor_area_sqm = 0.0
     site_area_candidates: list[float] = []
+    building_coverage_ratio_candidates: list[float] = []
     residential_building_count = 0
     aged_building_count = 0
+    household_count_total = 0
+    household_count_found = False
 
     for item in items:
         approval_year = _extract_approval_year(item)
@@ -255,15 +266,29 @@ def _fetch_building_register_metrics_for_pnu(pnu: str, parcel_area_sqm: float | 
         site_area = _extract_site_area(item)
         if site_area is not None and site_area > 0:
             site_area_candidates.append(site_area)
+        building_coverage_ratio = _extract_building_coverage_ratio(item)
+        if building_coverage_ratio is not None:
+            building_coverage_ratio_candidates.append(building_coverage_ratio)
+        household_count = _extract_household_count(item)
+        if household_count is not None:
+            household_count_total += household_count
+            household_count_found = True
 
     site_area_sqm = max(site_area_candidates) if site_area_candidates else (float(parcel_area_sqm) if parcel_area_sqm else None)
     average_approval_year = round(sum(approval_years) / len(approval_years)) if approval_years else None
     floor_area_ratio = None
     if site_area_sqm and site_area_sqm > 0 and total_floor_area_sqm > 0:
         floor_area_ratio = round((total_floor_area_sqm / site_area_sqm) * 100, 2)
+    building_coverage_ratio = max(building_coverage_ratio_candidates) if building_coverage_ratio_candidates else None
 
     purpose_counter = Counter(name for name in purpose_names if name and name.strip())
     primary_purpose_name = purpose_counter.most_common(1)[0][0] if purpose_counter else None
+    if not household_count_found and primary_purpose_name and _is_residential_purpose(primary_purpose_name):
+        expos_items = _fetch_building_items("getBrExposInfo", source_pnu, num_of_rows=1000)
+        inferred_household_count = _count_exclusive_units(expos_items)
+        if inferred_household_count > 0:
+            household_count_total = inferred_household_count
+            household_count_found = True
 
     return BuildingRegisterMetrics(
         pnu=pnu,
@@ -278,11 +303,13 @@ def _fetch_building_register_metrics_for_pnu(pnu: str, parcel_area_sqm: float | 
         total_floor_area_sqm=round(total_floor_area_sqm, 2) if total_floor_area_sqm > 0 else None,
         site_area_sqm=round(site_area_sqm, 2) if site_area_sqm is not None else None,
         floor_area_ratio=floor_area_ratio,
+        building_coverage_ratio=building_coverage_ratio,
+        household_count=household_count_total if household_count_found else None,
         primary_purpose_name=primary_purpose_name,
     )
 
 
-def _fetch_building_items(endpoint: str, pnu: str) -> list[dict[str, Any]]:
+def _fetch_building_items(endpoint: str, pnu: str, *, num_of_rows: int = 100) -> list[dict[str, Any]]:
     plat_gb_cd = _to_building_plat_gb_cd(pnu[10])
     response = _call_building_hub_json(
         endpoint,
@@ -292,7 +319,7 @@ def _fetch_building_items(endpoint: str, pnu: str) -> list[dict[str, Any]]:
             "platGbCd": plat_gb_cd,
             "bun": pnu[11:15],
             "ji": pnu[15:19],
-            "numOfRows": "100",
+            "numOfRows": str(max(1, min(num_of_rows, 1000))),
             "pageNo": "1",
         },
     )
@@ -391,6 +418,22 @@ def _extract_total_floor_area(item: dict[str, Any]) -> float | None:
     return None
 
 
+def _extract_building_coverage_ratio(item: dict[str, Any]) -> float | None:
+    for key in ("bcRat", "buildingCoverageRatio", "archAreaRatio"):
+        value = _to_positive_float(item.get(key))
+        if value is not None:
+            return round(value, 2)
+    return None
+
+
+def _extract_household_count(item: dict[str, Any]) -> int | None:
+    for key in ("hhldCnt", "householdCount", "fmlyCnt", "familyCount"):
+        value = _to_non_negative_int(item.get(key))
+        if value is not None:
+            return value
+    return None
+
+
 def _extract_site_area(item: dict[str, Any]) -> float | None:
     return _to_positive_float(item.get("platArea"))
 
@@ -405,6 +448,33 @@ def _to_positive_float(value: Any) -> float | None:
     if parsed <= 0:
         return None
     return parsed
+
+
+def _to_non_negative_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    if parsed < 0:
+        return None
+    return parsed
+
+
+def _count_exclusive_units(items: list[dict[str, Any]]) -> int:
+    if not items:
+        return 0
+    unique_units: set[tuple[str, str]] = set()
+    fallback_count = 0
+    for item in items:
+        dong = str(item.get("dongNm") or item.get("dongnm") or item.get("dong_name") or "").strip()
+        ho = str(item.get("hoNm") or item.get("honm") or item.get("ho_name") or "").strip()
+        if dong or ho:
+            unique_units.add((dong, ho))
+        else:
+            fallback_count += 1
+    return len(unique_units) if unique_units else fallback_count
 
 
 def _is_residential_purpose(value: str) -> bool:

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from fastapi.responses import Response
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -54,6 +55,42 @@ from app.services.map_zone.summary import (
     recalculate_zone_summary,
     to_iso,
 )
+
+
+def _calculate_growth_rate(current_price: int | None, previous_price: int | None) -> float | None:
+    if current_price is None or previous_price in (None, 0):
+        return None
+    return round(((current_price - previous_price) / previous_price) * 100, 2)
+
+
+def _fetch_parcel_price_snapshot_map(db: Session, pnu_list: list[str]) -> dict[str, dict[str, int | None]]:
+    unique_pnu_list = [pnu for pnu in dict.fromkeys(pnu_list) if pnu]
+    if not unique_pnu_list:
+        return {}
+    bind_params: dict[str, object] = {}
+    placeholders: list[str] = []
+    for idx, pnu in enumerate(unique_pnu_list):
+        key = f"snapshot_pnu_{idx}"
+        bind_params[key] = pnu
+        placeholders.append(f":{key}")
+    rows = db.execute(
+        text(
+            f"""
+            SELECT pnu, price_current, price_previous
+            FROM parcels
+            WHERE pnu IN ({", ".join(placeholders)})
+            """
+        ),
+        bind_params,
+    ).mappings().all()
+    return {
+        str(row.get("pnu")): {
+            "price_current": int(row.get("price_current")) if row.get("price_current") is not None else None,
+            "price_previous": int(row.get("price_previous")) if row.get("price_previous") is not None else None,
+        }
+        for row in rows
+        if row.get("pnu")
+    }
 
 
 def analyze_zone(
@@ -135,6 +172,7 @@ def get_zone_detail(db: Session, *, user_id: str, zone_id: str) -> MapZoneRespon
     base_year = analysis.base_year
     response_zone_area_sqm = round(sum(float(row.area_sqm or 0.0) for row in rows if row.included), 2)
     parcel_metadata_map = fetch_saved_zone_parcel_metadata(db, [row.pnu for row in rows])
+    price_snapshot_map = _fetch_parcel_price_snapshot_map(db, [row.pnu for row in rows])
     missing_land_metadata_pnu = [row.pnu for row in rows if not row.land_category_name and not row.purpose_area_name]
     live_land_metadata_map = fetch_zone_land_metadata(missing_land_metadata_pnu) if missing_land_metadata_pnu else {}
     building_batch = fetch_building_register_metrics_batch(
@@ -167,6 +205,16 @@ def get_zone_detail(db: Session, *, user_id: str, zone_id: str) -> MapZoneRespon
                 if row.pnu in building_batch.metrics_by_pnu
                 else None
             ),
+            price_previous=price_snapshot_map.get(row.pnu, {}).get("price_previous"),
+            growth_rate=_calculate_growth_rate(
+                row.price_current,
+                price_snapshot_map.get(row.pnu, {}).get("price_previous"),
+            ),
+            aged_building_ratio=(
+                round((building_batch.metrics_by_pnu.get(row.pnu, {}).aged_building_count / building_batch.metrics_by_pnu.get(row.pnu, {}).building_count) * 100, 2)
+                if row.pnu in building_batch.metrics_by_pnu and building_batch.metrics_by_pnu.get(row.pnu, {}).building_count
+                else None
+            ),
             site_area_sqm=(
                 building_batch.metrics_by_pnu.get(row.pnu, {}).site_area_sqm
                 if row.pnu in building_batch.metrics_by_pnu
@@ -179,6 +227,16 @@ def get_zone_detail(db: Session, *, user_id: str, zone_id: str) -> MapZoneRespon
             ),
             floor_area_ratio=(
                 building_batch.metrics_by_pnu.get(row.pnu, {}).floor_area_ratio
+                if row.pnu in building_batch.metrics_by_pnu
+                else None
+            ),
+            building_coverage_ratio=(
+                building_batch.metrics_by_pnu.get(row.pnu, {}).building_coverage_ratio
+                if row.pnu in building_batch.metrics_by_pnu
+                else None
+            ),
+            household_count=(
+                building_batch.metrics_by_pnu.get(row.pnu, {}).household_count
                 if row.pnu in building_batch.metrics_by_pnu
                 else None
             ),
@@ -429,6 +487,7 @@ def _prepare_zone_preview(db: Session, *, payload: MapZoneAnalyzeRequest) -> Pre
         )
     land_metadata_map = fetch_zone_land_metadata([row["pnu"] for row in overlapped])
     parcels = compose_zone_parcels(overlapped, feature_map, land_metadata_map)
+    price_snapshot_map = _fetch_parcel_price_snapshot_map(db, [item.pnu for item in parcels])
     building_batch = fetch_building_register_metrics_batch(
         db,
         parcel_area_by_pnu={item.pnu: item.area_sqm for item in parcels},
@@ -440,8 +499,13 @@ def _prepare_zone_preview(db: Session, *, payload: MapZoneAnalyzeRequest) -> Pre
         item.building_count = metrics.building_count
         item.aged_building_count = metrics.aged_building_count
         item.average_approval_year = metrics.average_approval_year
+        item.price_previous = price_snapshot_map.get(item.pnu, {}).get("price_previous")
+        item.growth_rate = _calculate_growth_rate(item.price_current, item.price_previous)
+        item.aged_building_ratio = round((metrics.aged_building_count / metrics.building_count) * 100, 2) if metrics.building_count else None
         item.total_floor_area_sqm = metrics.total_floor_area_sqm
         item.floor_area_ratio = metrics.floor_area_ratio
+        item.building_coverage_ratio = metrics.building_coverage_ratio
+        item.household_count = metrics.household_count
         item.primary_purpose_name = metrics.primary_purpose_name
     summary = calculate_summary(parcels)
     return PreparedZonePreview(
@@ -500,9 +564,14 @@ def _build_zone_response(
             building_count=item.building_count,
             aged_building_count=item.aged_building_count,
             average_approval_year=item.average_approval_year,
+            price_previous=item.price_previous,
+            growth_rate=item.growth_rate,
+            aged_building_ratio=item.aged_building_ratio,
             site_area_sqm=preview.building_metrics_by_pnu.get(item.pnu).site_area_sqm if item.pnu in preview.building_metrics_by_pnu else None,
             total_floor_area_sqm=item.total_floor_area_sqm,
             floor_area_ratio=item.floor_area_ratio,
+            building_coverage_ratio=item.building_coverage_ratio,
+            household_count=item.household_count,
             primary_purpose_name=item.primary_purpose_name,
         )
         for item in preview.parcels

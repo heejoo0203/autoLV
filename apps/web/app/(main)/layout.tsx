@@ -1,193 +1,136 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
 import { BrandLogo } from "@/app/components/brand-logo";
 
+type NavItem = {
+  label: string;
+  href: string;
+  key: string;
+  requiresAuth?: boolean;
+};
+
+const NAV_ITEMS: NavItem[] = [
+  { key: "features", label: "서비스 소개", href: "/features" },
+  { key: "map", label: "지도 분석", href: "/map", requiresAuth: true },
+  { key: "search", label: "개별 조회", href: "/search" },
+  { key: "files", label: "파일 분석", href: "/files", requiresAuth: true },
+  { key: "history", label: "이용내역", href: "/history", requiresAuth: true },
+];
+
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, openAuth, logout } = useAuth();
-  const [lookupMenuOpen, setLookupMenuOpen] = useState(false);
-  const lookupMenuRef = useRef<HTMLDivElement | null>(null);
-  const lookupMenuCloseTimerRef = useRef<number | null>(null);
 
   const isLoggedIn = Boolean(user);
+  const activeKey =
+    pathname === "/"
+      ? "features"
+      : pathname.startsWith("/map")
+        ? "map"
+        : pathname.startsWith("/search")
+          ? "search"
+          : pathname.startsWith("/files")
+            ? "files"
+            : pathname.startsWith("/history")
+              ? "history"
+              : pathname.startsWith("/features")
+                ? "features"
+                : "";
 
-  useEffect(() => {
-    setLookupMenuOpen(false);
-    if (lookupMenuCloseTimerRef.current) {
-      window.clearTimeout(lookupMenuCloseTimerRef.current);
-      lookupMenuCloseTimerRef.current = null;
+  const openProtected = (href: string) => {
+    if (!isLoggedIn) {
+      openAuth("login");
+      return;
     }
-  }, [pathname]);
-
-  useEffect(() => {
-    const closeOnOutside = (event: MouseEvent) => {
-      if (!lookupMenuRef.current) return;
-      if (!lookupMenuRef.current.contains(event.target as Node)) {
-        setLookupMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", closeOnOutside);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (lookupMenuCloseTimerRef.current) {
-        window.clearTimeout(lookupMenuCloseTimerRef.current);
-        lookupMenuCloseTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  const openLookupMenu = () => {
-    if (lookupMenuCloseTimerRef.current) {
-      window.clearTimeout(lookupMenuCloseTimerRef.current);
-      lookupMenuCloseTimerRef.current = null;
-    }
-    setLookupMenuOpen(true);
+    router.push(href);
   };
-
-  const scheduleCloseLookupMenu = () => {
-    if (lookupMenuCloseTimerRef.current) {
-      window.clearTimeout(lookupMenuCloseTimerRef.current);
-    }
-    lookupMenuCloseTimerRef.current = window.setTimeout(() => {
-      setLookupMenuOpen(false);
-      lookupMenuCloseTimerRef.current = null;
-    }, 220);
-  };
-
-  const lookupActive = pathname === "/search" || pathname === "/map" || pathname === "/files";
-  const featuresActive = pathname === "/features";
-  const historyActive = pathname === "/history";
-  const myPageActive = pathname === "/mypage";
-  const isMapPage = pathname === "/map";
-  const featuresOrRootActive = pathname === "/features" || pathname === "/";
 
   return (
     <div className="app-shell">
-      <header className="top-nav">
-        <BrandLogo href="/features" size="md" />
+      <header className="lab-header">
+        <BrandLogo href="/features" size="md" withTagline />
 
-        <nav className={`center-nav ${isLoggedIn ? "auth-nav" : "guest-nav"}`}>
-          <div
-            className={`nav-dropdown ${lookupActive ? "active" : ""} ${lookupMenuOpen ? "open" : ""}`}
-            ref={lookupMenuRef}
-            onMouseEnter={openLookupMenu}
-            onMouseLeave={scheduleCloseLookupMenu}
-          >
-            <button
-              type="button"
-              className={`nav-item nav-dropdown-trigger ${lookupActive ? "active" : ""}`}
-              onClick={() => {
-                if (lookupMenuOpen) {
-                  scheduleCloseLookupMenu();
-                } else {
-                  openLookupMenu();
-                }
-              }}
-              aria-expanded={lookupMenuOpen}
-            >
-              조회
-            </button>
-            <div className="nav-dropdown-menu">
-              <Link href="/search" className={`nav-dropdown-item ${pathname === "/search" ? "active" : ""}`}>
-                개별조회
+        <nav className="lab-header-nav" aria-label="주요 메뉴">
+          {NAV_ITEMS.map((item) =>
+            item.requiresAuth && !isLoggedIn ? (
+              <button
+                key={item.key}
+                type="button"
+                className={`lab-nav-link ${activeKey === item.key ? "active" : ""}`}
+                onClick={() => openProtected(item.href)}
+              >
+                {item.label}
+              </button>
+            ) : (
+              <Link key={item.key} href={item.href} className={`lab-nav-link ${activeKey === item.key ? "active" : ""}`}>
+                {item.label}
               </Link>
-              {isLoggedIn ? (
-                <>
-                  <Link href="/map" className={`nav-dropdown-item ${pathname === "/map" ? "active" : ""}`}>
-                    지도조회
-                  </Link>
-                  <Link href="/files" className={`nav-dropdown-item ${pathname === "/files" ? "active" : ""}`}>
-                    파일조회
-                  </Link>
-                </>
-              ) : null}
-            </div>
-          </div>
-
-          {isLoggedIn ? (
-            <Link href="/history" className={`nav-item ${historyActive ? "active" : ""}`}>
-              조회기록
-            </Link>
-          ) : null}
-
-          <Link href="/features" className={`nav-item ${featuresActive ? "active" : ""}`}>
-            기능설명
-          </Link>
-
-          {isLoggedIn ? (
-            <Link href="/mypage" className={`nav-item ${myPageActive ? "active" : ""}`}>
-              마이페이지
-            </Link>
-          ) : null}
+            ),
+          )}
         </nav>
 
-        <div className="right-profile">
+        <div className="lab-header-actions">
           {isLoggedIn ? (
-            <button
-              className="nav-item danger"
-              type="button"
-              onClick={async () => {
-                await logout();
-                router.push("/search");
-              }}
-            >
-              로그아웃
-            </button>
-          ) : (
-            <div className="guest-actions">
-              <button className="nav-item" onClick={() => openAuth("login")}>
-                로그인
+            <>
+              <Link href="/mypage" className={`lab-nav-link subtle ${pathname === "/mypage" ? "active" : ""}`}>
+                마이페이지
+              </Link>
+              <button
+                className="lab-nav-link danger"
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  router.push("/features");
+                }}
+              >
+                로그아웃
               </button>
-            </div>
+            </>
+          ) : (
+            <button className="lab-nav-link filled" type="button" onClick={() => openAuth("login")}>
+              로그인
+            </button>
           )}
         </div>
       </header>
 
-      <main className={`content-wrap ${isMapPage ? "content-wrap-wide" : ""}`}>{children}</main>
+      <main className={`content-wrap ${pathname === "/map" ? "content-wrap-bleed" : ""}`}>{children}</main>
+
       <footer className="site-footer">
-        <Link href="/features">기능설명</Link>
-        <span>·</span>
         <Link href="/privacy">개인정보처리방침</Link>
         <span>·</span>
-        <Link href="/account-deletion">계정삭제 안내</Link>
+        <Link href="/account-deletion">계정 삭제</Link>
+        <span>·</span>
+        <Link href="/features">서비스 소개</Link>
       </footer>
 
       <nav className="mobile-dock" aria-label="모바일 바로가기">
-        <Link href="/features" className={featuresOrRootActive ? "active" : ""}>
-          기능설명
+        <Link href="/features" className={activeKey === "features" ? "active" : ""}>
+          소개
         </Link>
-        <Link href="/search" className={pathname === "/search" ? "active" : ""}>
+        <Link href="/search" className={activeKey === "search" ? "active" : ""}>
           개별조회
         </Link>
+        <button
+          type="button"
+          className={activeKey === "map" ? "active" : ""}
+          onClick={() => openProtected("/map")}
+        >
+          지도분석
+        </button>
         {isLoggedIn ? (
-          <>
-            <Link href="/map" className={pathname === "/map" ? "active" : ""}>
-              지도조회
-            </Link>
-            <Link href="/mypage" className={myPageActive ? "active" : ""}>
-              마이페이지
-            </Link>
-          </>
+          <Link href="/history" className={activeKey === "history" ? "active" : ""}>
+            내역
+          </Link>
         ) : (
-          <>
-            <button type="button" onClick={() => openAuth("login")}>
-              로그인
-            </button>
-            <Link href="/privacy" className={pathname === "/privacy" ? "active" : ""}>
-              정책
-            </Link>
-          </>
+          <button type="button" onClick={() => openAuth("login")}>
+            로그인
+          </button>
         )}
       </nav>
     </div>

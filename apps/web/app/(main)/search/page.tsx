@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -18,6 +19,29 @@ type LandLookupApiResponse = {
   rows: LandResultRow[];
 };
 
+type QuickExample = {
+  label: string;
+  tab: SearchTab;
+  sido: string;
+  sigungu: string;
+  dong?: string;
+  sanType?: (typeof SAN_OPTIONS)[number];
+  mainNo?: string;
+  subNo?: string;
+  roadInitial?: string;
+  roadName?: string;
+  buildingMainNo?: string;
+  buildingSubNo?: string;
+};
+
+const QUICK_EXAMPLES: QuickExample[] = [
+  { label: "서울시청", tab: "지번", sido: "서울특별시", sigungu: "중구", dong: "태평로1가", mainNo: "31", subNo: "" },
+  { label: "성수동", tab: "지번", sido: "서울특별시", sigungu: "성동구", dong: "성수동2가", mainNo: "269", subNo: "25" },
+  { label: "압구정", tab: "도로명", sido: "서울특별시", sigungu: "강남구", roadInitial: "ㅇ", roadName: "압구정로", buildingMainNo: "165" },
+  { label: "마포", tab: "도로명", sido: "서울특별시", sigungu: "마포구", roadInitial: "ㅁ", roadName: "마포대로", buildingMainNo: "89" },
+  { label: "판교", tab: "도로명", sido: "경기도", sigungu: "성남시 분당구", roadInitial: "ㅍ", roadName: "판교역로", buildingMainNo: "166" },
+] as const;
+
 export default function SearchPage() {
   return (
     <Suspense fallback={<SearchPageFallback />}>
@@ -27,7 +51,7 @@ export default function SearchPage() {
 }
 
 function SearchPageClient() {
-  const { user } = useAuth();
+  const { user, openAuth } = useAuth();
   const params = useSearchParams();
 
   const [ldMap, setLdMap] = useState<LdMap>({});
@@ -61,6 +85,18 @@ function SearchPageClient() {
   const sigunguList = useMemo(() => (sido ? Object.keys(ldMap[sido] ?? {}) : []), [ldMap, sido]);
   const dongList = useMemo(() => (sido && sigungu ? Object.keys(ldMap[sido]?.[sigungu] ?? {}) : []), [ldMap, sido, sigungu]);
 
+  const latestRow = rows[0] ?? null;
+  const previousRow = rows[1] ?? null;
+  const latestPrice = parseDisplayedCurrency(latestRow?.개별공시지가);
+  const previousPrice = parseDisplayedCurrency(previousRow?.개별공시지가);
+  const priceDeltaRate =
+    latestPrice !== null && previousPrice && previousPrice > 0
+      ? Number((((latestPrice - previousPrice) / previousPrice) * 100).toFixed(2))
+      : null;
+  const resultAddress = latestRow
+    ? [latestRow.토지소재지, latestRow.지번].filter(Boolean).join(" ")
+    : null;
+
   useEffect(() => {
     void loadCodes();
   }, []);
@@ -75,6 +111,7 @@ function SearchPageClient() {
         const rec = await fetchSearchHistoryDetail(recordId);
         if (ignore) return;
         setRows(rec.rows ?? []);
+        setShowNoResult((rec.rows ?? []).length === 0);
         setMessage(`이력에서 선택한 주소 결과입니다: ${toDisplayAddress(rec.address_summary, rec.rows ?? [])}`);
       } catch (error) {
         if (ignore) return;
@@ -88,35 +125,6 @@ function SearchPageClient() {
       ignore = true;
     };
   }, [params, isLoggedIn]);
-
-  const loadCodes = async () => {
-    try {
-      const res = await fetch("/ld_codes.json", { cache: "force-cache" });
-      if (!res.ok) throw new Error("주소 코드 로드 실패");
-      setLdMap((await res.json()) as LdMap);
-    } catch {
-      setMessage("주소 코드 파일을 불러오지 못했습니다.");
-    }
-  };
-
-  const onSelectSido = (value: string) => {
-    setSido(value);
-    setSigungu("");
-    setDong("");
-    setRoadInitial("");
-    setRoadName("");
-    setAvailableInitials([]);
-    setRoadList([]);
-  };
-
-  const onSelectSigungu = (value: string) => {
-    setSigungu(value);
-    setDong("");
-    setRoadInitial("");
-    setRoadName("");
-    setAvailableInitials([]);
-    setRoadList([]);
-  };
 
   useEffect(() => {
     if (searchTab !== "도로명") {
@@ -162,7 +170,7 @@ function SearchPageClient() {
 
     void fetchInitials();
     return () => controller.abort();
-  }, [searchTab, sido, sigungu]);
+  }, [searchTab, sido, sigungu, roadInitial]);
 
   useEffect(() => {
     if (searchTab !== "도로명") {
@@ -205,6 +213,50 @@ function SearchPageClient() {
     return () => controller.abort();
   }, [searchTab, sido, sigungu, roadInitial]);
 
+  const loadCodes = async () => {
+    try {
+      const res = await fetch("/ld_codes.json", { cache: "force-cache" });
+      if (!res.ok) throw new Error("주소 코드 로드 실패");
+      setLdMap((await res.json()) as LdMap);
+    } catch {
+      setMessage("주소 코드 파일을 불러오지 못했습니다.");
+    }
+  };
+
+  const onSelectSido = (value: string) => {
+    setSido(value);
+    setSigungu("");
+    setDong("");
+    setRoadInitial("");
+    setRoadName("");
+    setAvailableInitials([]);
+    setRoadList([]);
+  };
+
+  const onSelectSigungu = (value: string) => {
+    setSigungu(value);
+    setDong("");
+    setRoadInitial("");
+    setRoadName("");
+    setAvailableInitials([]);
+    setRoadList([]);
+  };
+
+  const applyQuickExample = (example: QuickExample) => {
+    setSearchTab(example.tab);
+    setSido(example.sido);
+    setSigungu(example.sigungu);
+    setDong(example.dong ?? "");
+    setSanType(example.sanType ?? "일반");
+    setMainNo(example.mainNo ?? "");
+    setSubNo(example.subNo ?? "");
+    setRoadInitial((example.roadInitial as "" | (typeof ROAD_INITIALS)[number]) ?? "");
+    setRoadName(example.roadName ?? "");
+    setBuildingMainNo(example.buildingMainNo ?? "");
+    setBuildingSubNo(example.buildingSubNo ?? "");
+    setMessage(`${example.label} 예시를 불러왔습니다. 내용을 확인하고 바로 조회할 수 있습니다.`);
+  };
+
   const runSearch = async () => {
     if (!sido || !sigungu) {
       setMessage("시/도와 시/군/구를 선택해 주세요.");
@@ -214,11 +266,9 @@ function SearchPageClient() {
     setSearching(true);
     setShowNoResult(false);
     setMessage("조회 중입니다...");
+
     try {
-      const body =
-        searchTab === "지번"
-          ? buildJibunPayload()
-          : buildRoadPayload();
+      const body = searchTab === "지번" ? buildJibunPayload() : buildRoadPayload();
       if (!body) return;
 
       const res = await landFetch("/api/v1/land/single", {
@@ -243,7 +293,7 @@ function SearchPageClient() {
           address_summary: summary,
           rows: nextRows,
         }).catch(() => {
-          // 조회 자체는 성공했으므로 히스토리 저장 실패는 사용자 흐름을 막지 않는다.
+          // 조회 자체는 성공했으므로 저장 실패는 흐름을 막지 않는다.
         });
       }
     } catch (error) {
@@ -300,223 +350,334 @@ function SearchPageClient() {
   };
 
   return (
-    <div className="lookup-shell">
-      <section className="lookup-hero hero-grid">
-        <div>
-          <span className="eyebrow">Single Parcel Lookup</span>
-          <h1 className="hero-title">지번과 도로명을 구조화해서, 필요한 필지를 빠르게 찾습니다.</h1>
-          <p className="hero-copy">
-            필지랩 개별조회는 주소 선택 과정을 표준화해 검색 오류를 줄이고, 연도별 공시지가 이력과 토지소재지 정보를
-            한 화면에 정리합니다.
+    <div className="lab-page search-page">
+      <section className="lab-hero search-hero">
+        <div className="lab-hero-copy">
+          <span className="lab-eyebrow">Single Parcel Lookup</span>
+          <h1>주소를 입력하면, 필지 단위 결과를 바로 리포트처럼 보여줍니다.</h1>
+          <p>
+            입력창보다 결과가 먼저 보이도록 설계했습니다. 개별공시지가, 전년 대비, 연도별 이력까지 한 화면에서 읽을 수
+            있습니다.
           </p>
+          <div className="lab-hero-actions">
+            <Link href="/map" className="lab-btn lab-btn-primary" onClick={(event) => !isLoggedIn && (event.preventDefault(), openAuth("login"))}>
+              지도에서 조회
+            </Link>
+            <a href="#search-form" className="lab-btn lab-btn-secondary">
+              주소로 조회
+            </a>
+            {isLoggedIn ? (
+              <Link href="/files" className="lab-btn lab-btn-tertiary">
+                파일로 일괄 분석
+              </Link>
+            ) : (
+              <button type="button" className="lab-btn lab-btn-tertiary" onClick={() => openAuth("login")}>
+                파일 분석은 로그인 필요
+              </button>
+            )}
+          </div>
         </div>
-        <div className="hero-stat-grid">
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">조회 방식</div>
-            <div className="hero-stat-value small">지번 · 도로명 동시 지원</div>
+
+        <div className="lab-hero-panel">
+          <div className="lab-hero-panel-card">
+            <div className="lab-hero-panel-title">빠른 시작 예시</div>
+            <div className="lab-chip-row">
+              {QUICK_EXAMPLES.map((example) => (
+                <button key={example.label} type="button" className="lab-chip" onClick={() => applyQuickExample(example)}>
+                  {example.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">출력 형태</div>
-            <div className="hero-stat-value small">연도별 개별공시지가 표</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">로그인 없이</div>
-            <div className="hero-stat-value small">개별조회 즉시 사용 가능</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-label">로그인 시</div>
-            <div className="hero-stat-value small">조회기록 자동 저장 및 복원</div>
+          <div className="lab-hero-panel-grid">
+            <article className="lab-mini-card">
+              <span>입력 방식</span>
+              <strong>지번 · 도로명 구조화 입력</strong>
+            </article>
+            <article className="lab-mini-card">
+              <span>결과 형태</span>
+              <strong>핵심 지표 + 연도별 상세 표</strong>
+            </article>
           </div>
         </div>
       </section>
 
-      <div className="lookup-grid">
-        <div>
-          <section className="panel">
-            <div className="section-head">
-              <span className="eyebrow">Lookup Form</span>
-              <h2>주소 선택</h2>
-              <p className="hint">행정구역과 지번/도로명 구조에 맞춰 입력하면 가장 안정적으로 조회됩니다.</p>
-            </div>
+      <section className="lab-action-grid">
+        <article className="lab-action-card">
+          <span className="lab-card-kicker">주소로 조회</span>
+          <p>법정동 기반 지번과 도로명을 구조화해 단건 필지를 빠르게 찾습니다.</p>
+        </article>
+        <article className="lab-action-card">
+          <span className="lab-card-kicker">지도 분석</span>
+          <p>필지 클릭과 구역 분석을 연결해 단건 조회 결과를 공간 검토로 확장합니다.</p>
+        </article>
+        <article className="lab-action-card">
+          <span className="lab-card-kicker">결과 활용</span>
+          <p>조회 결과는 지도조회와 구역 분석의 기준 필지로 바로 이어서 사용할 수 있습니다.</p>
+        </article>
+      </section>
 
-            <div className="tab-row">
-              <button className={`tab-chip ${searchTab === "지번" ? "on" : ""}`} onClick={() => setSearchTab("지번")}>
-                지번 검색
-              </button>
-              <button className={`tab-chip ${searchTab === "도로명" ? "on" : ""}`} onClick={() => setSearchTab("도로명")}>
-                도로명 검색
-              </button>
-            </div>
+      <div className="search-workbench">
+        <section id="search-form" className="lab-surface search-form-card">
+          <div className="lab-section-head">
+            <span className="lab-eyebrow">Lookup Form</span>
+            <h2>주소 입력</h2>
+            <p>먼저 조회 방식을 선택하고, 행정구역과 주소 요소를 입력해 주세요.</p>
+          </div>
 
-            <div className="selector-grid">
-              <SelectBox title="시/도 선택" value={sido} items={sidoList} onChange={onSelectSido} />
-              <SelectBox title="시/군/구 선택" value={sigungu} items={sigunguList} onChange={onSelectSigungu} />
+          <div className="search-tab-switch">
+            <button className={`lab-toggle ${searchTab === "지번" ? "active" : ""}`} onClick={() => setSearchTab("지번")}>
+              지번 조회
+            </button>
+            <button className={`lab-toggle ${searchTab === "도로명" ? "active" : ""}`} onClick={() => setSearchTab("도로명")}>
+              도로명 조회
+            </button>
+          </div>
 
-              {searchTab === "지번" ? (
-                <SelectBox title="읍/면/동 선택" value={dong} items={dongList} onChange={setDong} />
-              ) : (
-                <div>
-                  <label className="field-label">도로명 선택</label>
-                  <div className="road-select-combo">
-                    <select
-                      className="scroll-select initials"
-                      size={8}
-                      value={roadInitial}
-                      disabled={initialLoading || availableInitials.length === 0}
-                      onChange={(e) => {
-                        setRoadInitial(e.target.value as "" | (typeof ROAD_INITIALS)[number]);
-                        setRoadName("");
-                      }}
-                    >
-                      <option value="">선택</option>
-                      {initialLoading ? <option value="" disabled>불러오는 중...</option> : null}
-                      {!initialLoading && availableInitials.length === 0 ? (
-                        <option value="" disabled>
-                          사용 가능한 자음 없음
-                        </option>
-                      ) : null}
-                      {availableInitials.map((ch) => (
-                        <option key={ch} value={ch}>
-                          {ch}
-                        </option>
-                      ))}
-                    </select>
-                    <select className="scroll-select roads" size={8} value={roadName} onChange={(e) => setRoadName(e.target.value)}>
-                      {roadLoading ? <option value="">불러오는 중...</option> : null}
-                      {roadList.map((road) => (
-                        <option key={road} value={road}>
-                          {road}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="search-form-grid">
+            <FormField label="시/도">
+              <select className="lab-input" value={sido} onChange={(e) => onSelectSido(e.target.value)}>
+                <option value="">선택</option>
+                {sidoList.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="시/군/구">
+              <select className="lab-input" value={sigungu} onChange={(e) => onSelectSigungu(e.target.value)}>
+                <option value="">선택</option>
+                {sigunguList.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </FormField>
 
             {searchTab === "지번" ? (
-              <div className="inline-form jibun-inline-form">
-                <span className="inline-label">지번 입력</span>
-                <select
-                  className="mini-select jibun-kind-select"
-                  value={sanType}
-                  onChange={(e) => setSanType(e.target.value as (typeof SAN_OPTIONS)[number])}
-                >
-                  {SAN_OPTIONS.map((item) => (
+              <FormField label="읍/면/동">
+                <select className="lab-input" value={dong} onChange={(e) => setDong(e.target.value)}>
+                  <option value="">선택</option>
+                  {dongList.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
                   ))}
                 </select>
-                <input className="mini-input jibun-num-input" value={mainNo} onChange={(e) => setMainNo(e.target.value)} placeholder="본번" />
-                <span className="inline-sep">-</span>
-                <input className="mini-input jibun-num-input" value={subNo} onChange={(e) => setSubNo(e.target.value)} placeholder="부번" />
-              </div>
+              </FormField>
             ) : (
-              <div className="inline-form">
-                <span className="inline-label">건물번호</span>
-                <input className="mini-input" value={buildingMainNo} onChange={(e) => setBuildingMainNo(e.target.value)} placeholder="본번" />
-                <span className="inline-sep">-</span>
-                <input className="mini-input" value={buildingSubNo} onChange={(e) => setBuildingSubNo(e.target.value)} placeholder="부번" />
+              <div className="lab-field search-road-field">
+                <label>도로명</label>
+                <div className="search-road-grid">
+                  <select
+                    className="lab-input compact"
+                    value={roadInitial}
+                    disabled={initialLoading || availableInitials.length === 0}
+                    onChange={(e) => {
+                      setRoadInitial(e.target.value as "" | (typeof ROAD_INITIALS)[number]);
+                      setRoadName("");
+                    }}
+                  >
+                    <option value="">자음</option>
+                    {availableInitials.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                  <select className="lab-input" value={roadName} onChange={(e) => setRoadName(e.target.value)}>
+                    <option value="">{roadLoading ? "불러오는 중..." : "도로명 선택"}</option>
+                    {roadList.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
+          </div>
 
-            <button className="btn-primary full" onClick={() => void runSearch()} disabled={searching}>
-              {searching ? "검색 중..." : "검색"}
-            </button>
-            <p className="hint">{message}</p>
-          </section>
-
-          <section className="panel">
-            <div className="section-head">
-              <span className="eyebrow">Result</span>
-              <h2>검색 결과</h2>
+          {searchTab === "지번" ? (
+            <div className="search-inline-card">
+              <div className="search-inline-label">지번</div>
+              <select className="lab-input compact fit" value={sanType} onChange={(e) => setSanType(e.target.value as (typeof SAN_OPTIONS)[number])}>
+                {SAN_OPTIONS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <input className="lab-input compact" value={mainNo} onChange={(e) => setMainNo(e.target.value)} placeholder="본번" />
+              <span className="search-inline-sep">-</span>
+              <input className="lab-input compact" value={subNo} onChange={(e) => setSubNo(e.target.value)} placeholder="부번" />
             </div>
-            {rows.length === 0 ? (
-              <p className="hint">{showNoResult ? "검색 결과가 없습니다." : "주소를 입력하여 조회해주세요."}</p>
-            ) : (
-              <table className="data-table mobile-card-table">
-                <thead>
-                  <tr>
-                    <th>가격기준년도</th>
-                    <th>토지소재지</th>
-                    <th>지번</th>
-                    <th>개별공시지가</th>
-                    <th>기준일자</th>
-                    <th>공시일자</th>
-                    <th>비고</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, idx) => (
-                    <tr key={`${row.토지소재지}-${idx}`}>
-                      <td data-label="가격기준년도">{row.기준년도}</td>
-                      <td data-label="토지소재지">{row.토지소재지}</td>
-                      <td data-label="지번">{row.지번}</td>
-                      <td data-label="개별공시지가">{row.개별공시지가}</td>
-                      <td data-label="기준일자">{row.기준일자}</td>
-                      <td data-label="공시일자">{row.공시일자}</td>
-                      <td data-label="비고">{row.비고}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
-        </div>
+          ) : (
+            <div className="search-inline-card">
+              <div className="search-inline-label">건물번호</div>
+              <input className="lab-input compact" value={buildingMainNo} onChange={(e) => setBuildingMainNo(e.target.value)} placeholder="본번" />
+              <span className="search-inline-sep">-</span>
+              <input className="lab-input compact" value={buildingSubNo} onChange={(e) => setBuildingSubNo(e.target.value)} placeholder="부번" />
+            </div>
+          )}
 
-        <aside className="lookup-side">
-          <article className="lookup-side-card">
-            <h3>입력 가이드</h3>
-            <p className="hint">
-              지번 조회는 행정구역과 본번·부번을, 도로명 조회는 시군구·도로명·건물번호를 정확히 맞추는 것이 핵심입니다.
-            </p>
-          </article>
-          <article className="lookup-side-card">
-            <h3>결과 활용</h3>
-            <ul className="feature-list">
-              <li>연도별 공시지가 추이 확인</li>
-              <li>로그인 시 조회기록 저장 및 재열람</li>
-              <li>지도조회·구역 분석의 기준 필지로 활용</li>
-            </ul>
-          </article>
-          {!isLoggedIn ? (
-            <article className="lookup-side-card">
-              <h3>로그인 후 확장 기능</h3>
-              <p className="hint">지도조회, 구역 분석, 파일조회, 조회기록 관리까지 이어서 사용할 수 있습니다.</p>
-            </article>
-          ) : null}
-        </aside>
+          <div className="search-form-actions">
+            <button className="lab-btn lab-btn-primary" onClick={() => void runSearch()} disabled={searching}>
+              {searching ? "조회 중..." : "필지 조회"}
+            </button>
+            <p className="search-status-text">{message}</p>
+          </div>
+        </section>
+
+        <section className="lab-surface search-result-card">
+          <div className="lab-section-head">
+            <span className="lab-eyebrow">Analysis Result</span>
+            <h2>분석 결과</h2>
+            <p>결과를 단순 표가 아니라 판단 흐름에 맞춘 카드와 상세 이력으로 보여줍니다.</p>
+          </div>
+
+          {searching ? (
+            <div className="search-skeleton-grid">
+              <div className="lab-skeleton tall" />
+              <div className="lab-skeleton" />
+              <div className="lab-skeleton" />
+              <div className="lab-skeleton wide" />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="lab-empty-state">
+              <strong>{showNoResult ? "검색 결과가 없습니다." : "아직 조회한 결과가 없습니다."}</strong>
+              <p>
+                {showNoResult
+                  ? "행정구역과 주소 요소를 다시 확인한 뒤 재조회해 주세요."
+                  : "빠른 시작 예시를 선택하거나 주소를 입력해 필지를 분석해보세요."}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="search-report-grid">
+                <div className="search-report-summary">
+                  <article className="lab-report-hero">
+                    <span className="lab-report-kicker">핵심 결과</span>
+                    <h3>{resultAddress}</h3>
+                    <p>{latestRow?.기준년도 ? `${latestRow.기준년도}년 기준 최신 공시지가를 기준으로 정리한 결과입니다.` : "연도별 공시지가 결과입니다."}</p>
+                    <div className="lab-chip-row">
+                      <span className="lab-chip subtle">기준연도 {latestRow?.기준년도 ?? "-"}</span>
+                      <span className="lab-chip subtle">조회건수 {rows.length}건</span>
+                    </div>
+                  </article>
+
+                  <div className="search-metric-grid">
+                    <article className="lab-metric-card">
+                      <span>최신 공시지가</span>
+                      <strong>{latestRow?.개별공시지가 ?? "-"}</strong>
+                    </article>
+                    <article className="lab-metric-card">
+                      <span>전년 대비</span>
+                      <strong>{priceDeltaRate === null ? "-" : `${priceDeltaRate > 0 ? "+" : ""}${priceDeltaRate}%`}</strong>
+                    </article>
+                    <article className="lab-metric-card">
+                      <span>최신 지번</span>
+                      <strong>{latestRow?.지번 ?? "-"}</strong>
+                    </article>
+                    <article className="lab-metric-card">
+                      <span>연도 범위</span>
+                      <strong>
+                        {rows[rows.length - 1]?.기준년도 ?? "-"} - {latestRow?.기준년도 ?? "-"}
+                      </strong>
+                    </article>
+                  </div>
+                </div>
+
+                <div className="search-report-side">
+                  <article className="lab-info-card">
+                    <h3>다음 액션</h3>
+                    <div className="lab-action-stack">
+                      {isLoggedIn ? (
+                        <>
+                          <Link href="/map" className="lab-card-link">
+                            지도에서 이어서 보기
+                          </Link>
+                          <Link href="/history" className="lab-card-link secondary">
+                            조회기록에서 다시 열기
+                          </Link>
+                        </>
+                      ) : (
+                        <button type="button" className="lab-card-link" onClick={() => openAuth("login")}>
+                          로그인 후 지도·기록 기능 사용
+                        </button>
+                      )}
+                    </div>
+                  </article>
+
+                  <article className="lab-info-card">
+                    <h3>해석 포인트</h3>
+                    <ul className="lab-bullet-list">
+                      <li>최신 단가와 전년 대비 변화를 먼저 확인</li>
+                      <li>연도별 이력으로 변동 폭을 비교</li>
+                      <li>필요 시 지도조회와 구역 분석으로 확장</li>
+                    </ul>
+                  </article>
+                </div>
+              </div>
+
+              <div className="search-detail-table">
+                <table className="data-table mobile-card-table">
+                  <thead>
+                    <tr>
+                      <th>가격기준년도</th>
+                      <th>토지소재지</th>
+                      <th>지번</th>
+                      <th>개별공시지가</th>
+                      <th>기준일자</th>
+                      <th>공시일자</th>
+                      <th>비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, idx) => (
+                      <tr key={`${row.토지소재지}-${idx}`}>
+                        <td data-label="가격기준년도">{row.기준년도}</td>
+                        <td data-label="토지소재지">{row.토지소재지}</td>
+                        <td data-label="지번">{row.지번}</td>
+                        <td data-label="개별공시지가">{row.개별공시지가}</td>
+                        <td data-label="기준일자">{row.기준일자}</td>
+                        <td data-label="공시일자">{row.공시일자}</td>
+                        <td data-label="비고">{row.비고}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
       </div>
     </div>
   );
 }
 
-function SelectBox(props: {
-  title: string;
-  value: string;
-  items: string[];
-  onChange: (value: string) => void;
-}) {
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="field-label">{props.title}</label>
-      <select className="scroll-select" size={8} value={props.value} onChange={(e) => props.onChange(e.target.value)}>
-        <option value="" disabled hidden>
-          선택
-        </option>
-        {props.items.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
-      </select>
+    <div className="lab-field">
+      <label>{label}</label>
+      {children}
     </div>
   );
 }
 
 async function landFetch(path: string, init: RequestInit): Promise<Response> {
   return apiFetch(path, init);
+}
+
+function parseDisplayedCurrency(value?: string | null): number | null {
+  if (!value) return null;
+  const onlyNumber = value.replace(/[^0-9.-]/g, "");
+  if (!onlyNumber) return null;
+  const parsed = Number(onlyNumber);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function toDisplayAddress(summary: string, results: LandResultRow[]): string {
@@ -532,9 +693,12 @@ function toDisplayAddress(summary: string, results: LandResultRow[]): string {
 
 function SearchPageFallback() {
   return (
-    <section className="panel">
-      <h2>개별조회</h2>
-      <p className="hint">페이지를 불러오는 중입니다...</p>
+    <section className="lab-surface">
+      <div className="lab-section-head">
+        <span className="lab-eyebrow">Loading</span>
+        <h2>개별조회</h2>
+      </div>
+      <p>페이지를 불러오는 중입니다...</p>
     </section>
   );
 }

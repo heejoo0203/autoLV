@@ -112,6 +112,7 @@ function MapPageClient() {
   const [zoneExcludeLoading, setZoneExcludeLoading] = useState(false);
   const [zoneListLoading, setZoneListLoading] = useState(false);
   const [zoneLibraryOpen, setZoneLibraryOpen] = useState(true);
+  const [mapPanelCollapsed, setMapPanelCollapsed] = useState(false);
   const [zoneItemBusyId, setZoneItemBusyId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDistrictOverlay, setShowDistrictOverlay] = useState(false);
@@ -730,6 +731,30 @@ function MapPageClient() {
     setShowDistrictOverlay((prev) => !prev);
   };
 
+  const moveToCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setMessage("브라우저가 현재 위치 조회를 지원하지 않습니다.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setMarker(lat, lng);
+        moveMapCenter(lat, lng);
+        if (viewMode === "basic") {
+          void runLookup(lat, lng);
+        } else {
+          setMessage("현재 위치로 지도를 이동했습니다. 필요하면 이 지점부터 구역을 그릴 수 있습니다.");
+        }
+      },
+      () => {
+        setMessage("현재 위치를 가져오지 못했습니다. 위치 권한을 확인해 주세요.");
+      },
+      { enableHighAccuracy: true, timeout: 7000 },
+    );
+  };
+
   const downloadCsv = async () => {
     if (!result?.pnu) return;
     try {
@@ -883,235 +908,265 @@ function MapPageClient() {
   };
 
   return isLoggedIn ? (
-    <section className={`map-page ${viewMode === "zone" && zoneLibraryOpen ? "with-library" : ""}`}>
-      <div className="map-main-column">
-        <div className="map-stage panel">
-        <div className="map-stage-head">
+    <section className={`map-workbench ${mapPanelCollapsed ? "panel-collapsed" : ""}`}>
+      <aside className={`lab-surface map-side-panel ${mapPanelCollapsed ? "collapsed" : ""}`}>
+        <div className="map-panel-head">
           <div>
-            <h2>지도조회</h2>
-            <div className="map-mode-tabs">
-              <button
-                type="button"
-                className={`map-mode-tab ${viewMode === "basic" ? "active" : ""}`}
-                onClick={() => setViewMode("basic")}
-              >
+            <span className="lab-eyebrow">Map Analysis</span>
+            <h2>지도 분석</h2>
+            <p>{viewMode === "basic" ? "주소 검색 또는 지도 클릭으로 필지를 찾고 결과를 리포트처럼 읽습니다." : "구역을 그리면 포함 필지와 사업성 지표를 한 번에 집계합니다."}</p>
+          </div>
+          <button type="button" className="lab-btn lab-btn-tertiary compact" onClick={() => setMapPanelCollapsed((prev) => !prev)}>
+            {mapPanelCollapsed ? "펼치기" : "접기"}
+          </button>
+        </div>
+
+        {!mapPanelCollapsed ? (
+          <>
+            <div className="search-tab-switch map-mode-switch">
+              <button type="button" className={`lab-toggle ${viewMode === "basic" ? "active" : ""}`} onClick={() => setViewMode("basic")}>
                 기본 조회
               </button>
-              <button
-                type="button"
-                className={`map-mode-tab ${viewMode === "zone" ? "active" : ""}`}
-                onClick={() => setViewMode("zone")}
-              >
+              <button type="button" className={`lab-toggle ${viewMode === "zone" ? "active" : ""}`} onClick={() => setViewMode("zone")}>
                 구역 조회
               </button>
             </div>
-            <p className="hint">
-              {viewMode === "basic"
-                ? "지도를 클릭하거나 좌측 상단 주소 입력으로 좌표를 조회할 수 있습니다."
-                : "지도를 클릭해 구역을 그리고 분석하면 90% 이상 포함 필지 목록/합계를 계산합니다."}
-            </p>
-          </div>
-          <div className="map-head-actions">
-            {viewMode === "zone" ? (
-              <button
-                type="button"
-                className={`map-ghost-btn ${zoneLibraryOpen ? "active" : ""}`}
-                onClick={() => setZoneLibraryOpen((prev) => !prev)}
-              >
-                {zoneLibraryOpen ? "저장 구역 닫기" : "저장 구역 보기"}
-              </button>
-            ) : null}
-            <button type="button" className={`map-ghost-btn ${showDistrictOverlay ? "active" : ""}`} onClick={toggleDistrictOverlay}>
-              {showDistrictOverlay ? "지적도 끄기" : "지적도 보기"}
-            </button>
-            <button type="button" className="map-ghost-btn" onClick={() => void toggleFullscreen()}>
-              {isFullscreen ? "전체화면 종료" : "전체화면"}
-            </button>
-          </div>
-        </div>
 
-        <div ref={mapFrameRef} className={`map-shell ${isFullscreen ? "fullscreen" : ""}`}>
-          {viewMode === "basic" ? (
-            <form
-              className="map-overlay-search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void runAddressSearch();
-              }}
-            >
-              <input
-                className="map-address-input"
-                value={addressQuery}
-                onChange={(event) => setAddressQuery(event.target.value)}
-                placeholder="주소 입력 (예: 서울특별시 강남구 개포동 12-3)"
-              />
-              <button type="submit" className="map-overlay-btn" disabled={addressLoading || loading || !mapReady}>
-                {addressLoading ? "조회 중..." : "주소 조회"}
-              </button>
-            </form>
-          ) : (
-            <>
-              <div className="map-overlay-zone">
-                <input
-                  className="map-address-input"
-                  value={zoneName}
-                  onChange={(event) => setZoneName(event.target.value)}
-                  placeholder="구역 이름"
-                />
-                <div className="map-zone-tools">
-                  <button type="button" className="map-overlay-btn" onClick={undoZonePoint} disabled={zonePoints.length === 0 || zoneLoading}>
+            {viewMode === "basic" ? (
+              <>
+                <form
+                  className="map-panel-search"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void runAddressSearch();
+                  }}
+                >
+                  <input
+                    className="lab-input"
+                    value={addressQuery}
+                    onChange={(event) => setAddressQuery(event.target.value)}
+                    placeholder="주소 또는 지번 입력"
+                  />
+                  <button type="submit" className="lab-btn lab-btn-primary" disabled={addressLoading || loading || !mapReady}>
+                    {addressLoading ? "조회 중..." : "주소 조회"}
+                  </button>
+                </form>
+
+                <div className="map-panel-summary">
+                  {result ? (
+                    <div className="map-side-metrics">
+                      <MetricCard label="현재 공시지가" value={formatNumber(result.price_current)} />
+                      <MetricCard label="전년 대비" value={formatRate(result.growth_rate)} />
+                      <MetricCard label="면적(㎡)" value={formatArea(result.area)} />
+                      <MetricCard label="추정 총 가치" value={formatNumber(result.estimated_total_price)} />
+                    </div>
+                  ) : (
+                    <div className="lab-empty-state compact">
+                      <strong>아직 선택한 필지가 없습니다.</strong>
+                      <p>지도를 클릭하거나 주소를 입력해 분석을 시작해 주세요.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="map-panel-actions">
+                  <button type="button" className="lab-btn lab-btn-secondary" onClick={() => void loadYearlyRows()} disabled={!result?.pnu || yearlyLoading}>
+                    {yearlyLoading ? "불러오는 중..." : "연도별 이력"}
+                  </button>
+                  <button type="button" className="lab-btn lab-btn-secondary" onClick={() => void loadLandDetails()} disabled={!result?.pnu || detailLoading}>
+                    {detailLoading ? "조회 중..." : "토지특성"}
+                  </button>
+                  <button type="button" className="lab-btn lab-btn-tertiary" onClick={() => void downloadCsv()} disabled={!result?.pnu}>
+                    CSV
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="map-panel-zone-form">
+                  <input className="lab-input" value={zoneName} onChange={(event) => setZoneName(event.target.value)} placeholder="구역 이름" />
+                  <div className="map-panel-zone-points">선택 좌표 {zonePoints.length}개</div>
+                </div>
+
+                <div className="map-panel-actions stacked">
+                  <button type="button" className="lab-btn lab-btn-primary" onClick={() => void runZoneAnalyze()} disabled={zoneLoading || zonePoints.length < 3}>
+                    {zoneLoading ? "분석 중..." : "구역 분석 실행"}
+                  </button>
+                  <button type="button" className="lab-btn lab-btn-secondary" onClick={undoZonePoint} disabled={zonePoints.length === 0 || zoneLoading}>
                     되돌리기
                   </button>
-                  <button type="button" className="map-overlay-btn" onClick={clearZonePoints} disabled={zoneLoading}>
+                  <button type="button" className="lab-btn lab-btn-tertiary" onClick={clearZonePoints} disabled={zoneLoading}>
                     초기화
                   </button>
+                </div>
+
+                <div className="map-panel-summary">
+                  {zoneResult ? (
+                    <div className="map-side-metrics">
+                      <MetricCard label="구역 내 필지 수" value={formatNumber(zoneResult.summary.parcel_count)} />
+                      <MetricCard label="총 공시지가 합계" value={formatNumber(zoneResult.summary.assessed_total_price)} />
+                      <MetricCard label="노후도(%)" value={formatNumber(zoneResult.summary.aged_building_ratio)} />
+                      <MetricCard label="평균 용적률" value={formatNumber(zoneResult.summary.average_floor_area_ratio)} />
+                    </div>
+                  ) : (
+                    <div className="lab-empty-state compact">
+                      <strong>아직 구역 분석 결과가 없습니다.</strong>
+                      <p>지도에서 경계를 그리고 분석을 실행하면 요약 지표가 여기에 표시됩니다.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="map-panel-actions">
+                  {!zoneResult?.summary.is_saved ? (
+                    <button type="button" className="lab-btn lab-btn-secondary" onClick={() => void runZoneSave()} disabled={!zoneResult || zoneSaveLoading}>
+                      {zoneSaveLoading ? "저장 중..." : "구역 저장"}
+                    </button>
+                  ) : (
+                    <span className="map-save-state">저장됨</span>
+                  )}
                   <button
                     type="button"
-                    className="map-overlay-btn map-overlay-btn-strong"
-                    onClick={() => void runZoneAnalyze()}
-                    disabled={zoneLoading || zonePoints.length < 3}
+                    className="lab-btn lab-btn-danger"
+                    onClick={() => void runZoneExclude()}
+                    disabled={!zoneResult || selectedZonePnuSet.size === 0 || zoneExcludeLoading}
                   >
-                    {zoneLoading ? "분석 중..." : `구역 분석 (${zonePoints.length})`}
+                    {zoneExcludeLoading ? "처리 중..." : `선택 삭제 (${selectedZonePnuSet.size})`}
+                  </button>
+                  <button type="button" className="lab-btn lab-btn-tertiary" onClick={() => void runZoneDownload()} disabled={!zoneResult?.summary.is_saved}>
+                    CSV
                   </button>
                 </div>
-              </div>
-            </>
-          )}
+
+                {zoneLibraryOpen ? (
+                  <ZoneLibraryPanel
+                    open={zoneLibraryOpen}
+                    loading={zoneListLoading}
+                    items={zoneList}
+                    activeZoneId={activeZoneId}
+                    busyZoneId={zoneItemBusyId}
+                    onSelect={(item) => void loadZoneById(item.zone_id)}
+                    onRename={(item) => void renameZoneItem(item)}
+                    onDelete={(item) => void deleteZoneItem(item)}
+                  />
+                ) : null}
+              </>
+            )}
+          </>
+        ) : null}
+      </aside>
+
+      <div className="map-stage-column">
+        <div ref={mapFrameRef} className={`lab-surface map-frame ${isFullscreen ? "fullscreen" : ""}`}>
+          <div className="map-floating-controls">
+            <button type="button" className={`lab-float-btn ${showDistrictOverlay ? "active" : ""}`} onClick={toggleDistrictOverlay}>
+              지적도
+            </button>
+            <button type="button" className="lab-float-btn" onClick={moveToCurrentLocation}>
+              현재 위치
+            </button>
+            <button type="button" className="lab-float-btn" onClick={() => void toggleFullscreen()}>
+              {isFullscreen ? "전체화면 종료" : "전체화면"}
+            </button>
+            {viewMode === "zone" ? (
+              <>
+                <button type="button" className={`lab-float-btn ${zoneLibraryOpen ? "active" : ""}`} onClick={() => setZoneLibraryOpen((prev) => !prev)}>
+                  저장 구역
+                </button>
+                <button type="button" className="lab-float-btn danger" onClick={clearZonePoints}>
+                  구역 초기화
+                </button>
+              </>
+            ) : null}
+          </div>
           <div ref={mapContainerRef} className="map-canvas" />
         </div>
-        </div>
 
-        <section className="map-result panel">
-        <div className="map-result-head">
-          <h2>조회 결과</h2>
-          {viewMode === "basic" ? (
-            <button className="btn-primary" onClick={() => void downloadCsv()} disabled={!result?.pnu}>
-              CSV 내보내기
-            </button>
-          ) : (
-            <div className="map-actions-row">
-              {!zoneResult?.summary.is_saved ? (
-                <button type="button" className="btn-primary" onClick={() => void runZoneSave()} disabled={!zoneResult || zoneSaveLoading}>
-                  {zoneSaveLoading ? "저장 중..." : "구역 저장"}
-                </button>
-              ) : (
-                <span className="map-save-state">저장됨</span>
-              )}
-              <button
-                type="button"
-                className="map-inline-action danger"
-                onClick={() => void runZoneExclude()}
-                disabled={!zoneResult || selectedZonePnuSet.size === 0 || zoneExcludeLoading}
-              >
-                {zoneExcludeLoading ? "처리 중..." : `선택 삭제 (${selectedZonePnuSet.size})`}
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => void runZoneDownload()}
-                disabled={!zoneResult?.summary.is_saved}
-              >
-                CSV 내보내기
-              </button>
+        <section className={`lab-surface map-bottom-sheet ${viewMode === "zone" ? "zone-mode" : ""}`}>
+          <div className="map-bottom-head">
+            <div>
+              <span className="lab-eyebrow">Result Sheet</span>
+              <h3>{viewMode === "basic" ? "필지 분석 결과" : "구역 분석 결과"}</h3>
             </div>
-          )}
-        </div>
-        <p className="hint">{loading ? "조회 중입니다..." : message}</p>
-
-        {viewMode === "basic" ? (
-          !result ? (
-            <div className="map-empty">지도를 클릭해 필지 정보를 조회해 주세요.</div>
-          ) : (
-            <>
-              <div className="map-metrics">
-                <MetricCard label="지번" value={result.jibun_address || result.address_summary || "-"} />
-                <MetricCard label="도로명 주소" value={result.road_address || "-"} />
-                <MetricCard label="현재 공시지가(원/㎡)" value={formatNumber(result.price_current)} />
-                <MetricCard label="전년도 공시지가(원/㎡)" value={formatNumber(result.price_previous)} />
-                <MetricCard label="증감률(%)" value={formatRate(result.growth_rate)} />
-                <MetricCard label="면적(㎡)" value={formatArea(result.area)} />
-                <MetricCard label="면적×단가(원)" value={formatNumber(result.estimated_total_price)} />
-                <MetricCard
-                  label={`인근 평균(${result.nearby_radius_m}m, 원/㎡)`}
-                  value={formatNumber(result.nearby_avg_price)}
-                />
-              </div>
-
-              <div className="hint">
-                좌표: {result.lat.toFixed(6)}, {result.lng.toFixed(6)} / 데이터 소스: {result.cache_hit ? "DB 캐시" : "실시간"}
-              </div>
-
-              <div className="map-actions-row">
-                <button
-                  type="button"
-                  className="map-inline-action"
-                  onClick={() => void loadLandDetails()}
-                  disabled={detailLoading}
-                >
-                  {detailLoading ? "조회 중..." : "토지특성 상세 조회"}
+            <div className="map-bottom-actions">
+              {viewMode === "basic" && result ? (
+                <button type="button" className="lab-btn lab-btn-tertiary compact" onClick={() => void downloadCsv()}>
+                  CSV 내보내기
                 </button>
-                {!result.road_address ? (
-                  <span className="hint">
-                    이 필지는 도로명주소가 부여되지 않았거나 VWorld 역지오코딩에서 제공되지 않을 수 있습니다.
-                  </span>
-                ) : null}
-              </div>
-
-              {landDetails ? (
-                <div className="map-metrics map-detail-grid">
-                  <MetricCard label="상세 기준연도" value={landDetails.stdr_year || "-"} />
-                  <MetricCard label="지목" value={landDetails.land_category_name || "-"} />
-                  <MetricCard label="용도지역명" value={landDetails.purpose_area_name || "-"} />
-                  <MetricCard label="용도지구명" value={landDetails.purpose_district_name || "-"} />
-                  <MetricCard label="토지면적(㎡)" value={formatArea(landDetails.area)} />
-                </div>
               ) : null}
+            </div>
+          </div>
+          <p className="map-status-text">{loading ? "조회 중입니다..." : message}</p>
 
-              <MapRowsTable
-                rows={result.rows}
-                cacheHit={result.cache_hit}
-                loading={yearlyLoading}
-                onLoadRows={() => void loadYearlyRows()}
-              />
-            </>
-          )
-        ) : (
-          <ZoneResultTable
-            zoneResult={zoneResult}
-            selectedPnuSet={selectedZonePnuSet}
-            onSelect={(pnu, checked) => toggleZoneSelection(pnu, checked)}
-            onLocate={(lat, lng) => {
-              if (lat === null || lng === null) return;
-              setMarker(lat, lng);
-              moveMapCenter(lat, lng);
-            }}
-            onOpenBasic={(parcel) => void openZoneParcelInBasicView(parcel)}
-          />
-        )}
+          {viewMode === "basic" ? (
+            !result ? (
+              <div className="lab-empty-state">
+                <strong>아직 조회한 결과가 없습니다.</strong>
+                <p>지도를 클릭하거나 좌측 패널에서 주소를 입력해 필지를 분석해 주세요.</p>
+              </div>
+            ) : (
+              <>
+                <div className="map-metrics">
+                  <MetricCard label="지번" value={result.jibun_address || result.address_summary || "-"} />
+                  <MetricCard label="도로명 주소" value={result.road_address || "-"} />
+                  <MetricCard label="현재 공시지가(원/㎡)" value={formatNumber(result.price_current)} />
+                  <MetricCard label="전년도 공시지가(원/㎡)" value={formatNumber(result.price_previous)} />
+                  <MetricCard label="증감률(%)" value={formatRate(result.growth_rate)} />
+                  <MetricCard label="면적(㎡)" value={formatArea(result.area)} />
+                  <MetricCard label="면적×단가(원)" value={formatNumber(result.estimated_total_price)} />
+                  <MetricCard label={`인근 평균(${result.nearby_radius_m}m)`} value={formatNumber(result.nearby_avg_price)} />
+                </div>
+
+                <div className="map-inline-note">
+                  좌표 {result.lat.toFixed(6)}, {result.lng.toFixed(6)} · 데이터 소스 {result.cache_hit ? "DB 캐시" : "실시간"}
+                </div>
+
+                {landDetails ? (
+                  <div className="map-metrics map-detail-grid">
+                    <MetricCard label="상세 기준연도" value={landDetails.stdr_year || "-"} />
+                    <MetricCard label="지목" value={landDetails.land_category_name || "-"} />
+                    <MetricCard label="용도지역명" value={landDetails.purpose_area_name || "-"} />
+                    <MetricCard label="용도지구명" value={landDetails.purpose_district_name || "-"} />
+                    <MetricCard label="토지면적(㎡)" value={formatArea(landDetails.area)} />
+                  </div>
+                ) : null}
+
+                <MapRowsTable rows={result.rows} cacheHit={result.cache_hit} loading={yearlyLoading} onLoadRows={() => void loadYearlyRows()} />
+              </>
+            )
+          ) : (
+            <ZoneResultTable
+              zoneResult={zoneResult}
+              selectedPnuSet={selectedZonePnuSet}
+              onSelect={(pnu, checked) => toggleZoneSelection(pnu, checked)}
+              onLocate={(lat, lng) => {
+                if (lat === null || lng === null) return;
+                setMarker(lat, lng);
+                moveMapCenter(lat, lng);
+              }}
+              onOpenBasic={(parcel) => void openZoneParcelInBasicView(parcel)}
+            />
+          )}
         </section>
       </div>
-
-      {viewMode === "zone" ? (
-        <aside className={`map-sidebar ${zoneLibraryOpen ? "open" : ""}`}>
-          <ZoneLibraryPanel
-            open={zoneLibraryOpen}
-            loading={zoneListLoading}
-            items={zoneList}
-            activeZoneId={activeZoneId}
-            busyZoneId={zoneItemBusyId}
-            onSelect={(item) => void loadZoneById(item.zone_id)}
-            onRename={(item) => void renameZoneItem(item)}
-            onDelete={(item) => void deleteZoneItem(item)}
-          />
-        </aside>
-      ) : null}
     </section>
   ) : (
-    <section className="panel">
-      <h2>지도조회</h2>
-      <p className="hint">비로그인 상태에서는 개별조회만 사용할 수 있습니다.</p>
-      <button className="btn-primary" onClick={() => openAuth("login")}>
-        로그인하고 지도조회 사용하기
+    <section className="lab-surface map-guest-card">
+      <div className="lab-section-head">
+        <span className="lab-eyebrow">Locked Feature</span>
+        <h2>지도 분석은 로그인 후 사용할 수 있습니다.</h2>
+        <p>구역 분석, 저장 구역 관리, CSV 내보내기는 회원 기능으로 제공됩니다.</p>
+      </div>
+      <div className="lab-action-grid compact">
+        <article className="lab-action-card">
+          <span className="lab-card-kicker">구역 분석</span>
+          <p>폴리곤을 그려 포함 필지와 구역 집계 지표를 계산합니다.</p>
+        </article>
+        <article className="lab-action-card">
+          <span className="lab-card-kicker">사업성 지표</span>
+          <p>노후도, 용적률, 과소필지 비율을 구역 단위로 확인합니다.</p>
+        </article>
+      </div>
+      <button className="lab-btn lab-btn-primary" onClick={() => openAuth("login")}>
+        로그인하고 지도 분석 사용하기
       </button>
     </section>
   );

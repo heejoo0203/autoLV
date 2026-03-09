@@ -2,31 +2,34 @@
 
 import Link from "next/link";
 
-import { BrandLogo } from "@/app/components/brand-logo";
 import { useAuth } from "@/app/components/auth-provider";
 
-const coreFeatures = [
+const quickActions = [
   {
-    icon: "개별",
-    title: "개별조회",
-    summary: "지번·도로명으로 단건 공시지가를 빠르게 확인",
-    href: "/search",
-    cta: "바로가기",
-  },
-  {
-    icon: "지도",
-    title: "지도조회",
-    summary: "필지 클릭과 구역 분석으로 공간 단위 검토 수행",
+    title: "지도에서 조회",
+    description: "필지를 클릭하거나 구역을 그려 공시지가와 사업성 지표를 확인합니다.",
     href: "/map",
-    cta: "바로가기",
+    locked: true,
   },
   {
-    icon: "파일",
-    title: "파일조회",
-    summary: "대량 주소 파일을 업로드해 비동기 조회 처리",
-    href: "/files",
-    cta: "바로가기",
+    title: "주소로 조회",
+    description: "지번과 도로명을 구조화해 연도별 개별공시지가를 빠르게 확인합니다.",
+    href: "/search",
+    locked: false,
   },
+  {
+    title: "파일로 분석",
+    description: "CSV/XLSX 파일을 업로드해 대량 주소를 비동기 처리합니다.",
+    href: "/files",
+    locked: true,
+  },
+] as const;
+
+const highlights = [
+  { label: "핵심 데이터", value: "공시지가 · 노후도 · 용적률" },
+  { label: "주요 작업", value: "필지조회 · 지도분석 · 구역 집계" },
+  { label: "활용 장면", value: "재개발 검토 · 물건 스크리닝" },
+  { label: "출력 형태", value: "리포트형 결과 카드 · CSV" },
 ] as const;
 
 export default function FeaturesPage() {
@@ -34,75 +37,103 @@ export default function FeaturesPage() {
   const isLoggedIn = Boolean(user);
 
   return (
-    <div className="page-grid">
-      <section className="page-hero hero-grid">
-        <div>
-          <span className="eyebrow">Parcel Intelligence</span>
-          <h1 className="hero-title">필지 경계부터 구역 분석까지, 핵심만 빠르게 봅니다.</h1>
-          <p className="hero-copy">
-            필지랩은 개별공시지가 조회와 구역 분석을 한 흐름으로 연결해 재개발·재건축 검토에 필요한 기준 데이터를
-            빠르게 읽을 수 있게 구성한 실무형 워크스페이스입니다.
+    <div className="lab-page">
+      <section className="lab-hero">
+        <div className="lab-hero-copy">
+          <span className="lab-eyebrow">Land Intelligence Workspace</span>
+          <h1>필지와 구역을 데이터로 분석하세요</h1>
+          <p>
+            필지Lab은 개별공시지가 조회를 넘어, 지도 기반 필지 선택과 구역 집계까지 연결하는 토지 분석 도구입니다.
+            공시지가, 노후도, 용적률, 과소필지 비율을 한 흐름으로 확인할 수 있습니다.
           </p>
-          <div className="hero-actions">
-            <Link href="/search" className="btn-primary">
-              개별조회 시작
-            </Link>
+          <div className="lab-hero-actions">
             {isLoggedIn ? (
-              <Link href="/map" className="nav-item active">
-                지도·구역 분석 열기
+              <Link href="/map" className="lab-btn lab-btn-primary">
+                지도에서 바로 조회
               </Link>
             ) : (
-              <button className="nav-item" type="button" onClick={() => openAuth("login")}>
-                로그인 후 전체 기능 사용
+              <button type="button" className="lab-btn lab-btn-primary" onClick={() => openAuth("login")}>
+                로그인 후 지도 분석 사용
+              </button>
+            )}
+            <Link href="/search" className="lab-btn lab-btn-secondary">
+              주소로 조회하기
+            </Link>
+            {isLoggedIn ? (
+              <Link href="/files" className="lab-btn lab-btn-tertiary">
+                파일 업로드 분석
+              </Link>
+            ) : (
+              <button type="button" className="lab-btn lab-btn-tertiary" onClick={() => openAuth("login")}>
+                파일 분석은 로그인 필요
               </button>
             )}
           </div>
-          <div className="feature-summary-strip">
-            <span className="feature-summary-chip">공시지가</span>
-            <span className="feature-summary-chip">필지 경계</span>
-            <span className="feature-summary-chip">노후도</span>
-            <span className="feature-summary-chip">용적률</span>
-            <span className="feature-summary-chip">구역 집계</span>
-          </div>
         </div>
 
-        <aside className="compact-hero-note">
-          <BrandLogo size="lg" />
-          <div className="hero-stat-grid">
-            <div className="hero-stat-card">
-              <div className="hero-stat-label">핵심 흐름</div>
-              <div className="hero-stat-value small">개별조회 → 지도조회 → 구역 분석</div>
-            </div>
-            <div className="hero-stat-card">
-              <div className="hero-stat-label">분석 관점</div>
-              <div className="hero-stat-value small">공시지가, 노후도, 용적률, 과소필지</div>
-            </div>
+        <div className="lab-hero-panel">
+          <div className="lab-hero-panel-card">
+            <div className="lab-hero-panel-title">핵심 워크플로우</div>
+            <div className="lab-hero-panel-value">개별조회 → 지도조회 → 구역 분석 → 파일 분석</div>
           </div>
-        </aside>
+          <div className="lab-hero-panel-grid">
+            {highlights.map((item) => (
+              <article key={item.label} className="lab-mini-card">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </article>
+            ))}
+          </div>
+        </div>
       </section>
 
-      <section className="panel">
-        <div className="section-head">
-          <span className="eyebrow">Core Features</span>
-          <h2>주요 기능</h2>
+      <section className="lab-section">
+        <div className="lab-section-head">
+          <span className="lab-eyebrow">Quick Actions</span>
+          <h2>지금 바로 시작할 작업</h2>
         </div>
-        <div className="compact-feature-grid">
-          {coreFeatures.map((feature) => (
-            <article key={feature.title} className="feature-card-pro">
-              <div className="feature-kicker">{feature.icon}</div>
-              <h3>{feature.title}</h3>
-              <p className="hint">{feature.summary}</p>
-              {feature.href === "/files" && !isLoggedIn ? (
-                <button type="button" className="nav-item" onClick={() => openAuth("login")}>
-                  로그인 필요
+        <div className="lab-action-grid">
+          {quickActions.map((action) => {
+            const cta =
+              action.locked && !isLoggedIn ? (
+                <button type="button" className="lab-card-link" onClick={() => openAuth("login")}>
+                  로그인 후 사용
                 </button>
               ) : (
-                <Link href={feature.href} className="nav-item active">
-                  {feature.cta}
+                <Link href={action.href} className="lab-card-link">
+                  바로 열기
                 </Link>
-              )}
-            </article>
-          ))}
+              );
+
+            return (
+              <article key={action.title} className="lab-action-card">
+                <span className="lab-card-kicker">{action.title}</span>
+                <p>{action.description}</p>
+                {cta}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="lab-section">
+        <div className="lab-section-head">
+          <span className="lab-eyebrow">Why PiljiLab</span>
+          <h2>조회 툴이 아니라 판단 도구처럼 보이게</h2>
+        </div>
+        <div className="lab-decision-grid">
+          <article className="lab-info-card">
+            <h3>지도와 데이터가 붙어 있습니다</h3>
+            <p>필지 선택, 지적도, 구역 경계, 포함 필지 시각화가 한 화면에서 이어집니다.</p>
+          </article>
+          <article className="lab-info-card">
+            <h3>결과를 리포트처럼 읽습니다</h3>
+            <p>핵심 지표, 상세 이력, 다운로드 액션을 분리해 숫자 나열보다 판단 흐름을 우선합니다.</p>
+          </article>
+          <article className="lab-info-card">
+            <h3>실무자가 보는 기준을 담습니다</h3>
+            <p>공시지가뿐 아니라 노후도, 용적률, 과소필지 비율까지 함께 검토할 수 있습니다.</p>
+          </article>
         </div>
       </section>
     </div>

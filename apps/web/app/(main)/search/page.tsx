@@ -424,7 +424,7 @@ function SearchPageClient() {
             확인해 보세요.
           </p>
           <div className="lab-hero-actions">
-            <Link href="/map" className="lab-btn lab-btn-primary" onClick={(event) => !isLoggedIn && (event.preventDefault(), openAuth("login"))}>
+            <Link href="/map" className="lab-btn lab-btn-primary">
               지도에서 조회
             </Link>
             <a href="#search-form" className="lab-btn lab-btn-secondary">
@@ -669,9 +669,14 @@ function SearchPageClient() {
                           </Link>
                         </>
                       ) : (
-                        <button type="button" className="lab-card-link" onClick={() => openAuth("login")}>
-                          로그인 후 지도·기록 기능 사용
-                        </button>
+                        <>
+                          <Link href={lookupPnu ? `/map?pnu=${encodeURIComponent(lookupPnu)}` : "/map"} className="lab-card-link">
+                            지도에서 이어서 보기
+                          </Link>
+                          <button type="button" className="lab-card-link secondary" onClick={() => openAuth("login")}>
+                            로그인 후 기록 저장 사용
+                          </button>
+                        </>
                       )}
                     </div>
                   </article>

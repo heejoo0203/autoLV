@@ -131,6 +131,15 @@ function MapPageClient() {
 
   const isLoggedIn = Boolean(user);
 
+  const handleModeChange = (nextMode: "basic" | "zone") => {
+    if (nextMode === "zone" && !isLoggedIn) {
+      setMessage("구역 조회는 로그인 후 사용할 수 있습니다. 비로그인 상태에서는 기본조회만 가능합니다.");
+      openAuth("login");
+      return;
+    }
+    setViewMode(nextMode);
+  };
+
   useEffect(() => {
     const onFullscreenChange = () => {
       const frame = mapFrameRef.current;
@@ -165,7 +174,6 @@ function MapPageClient() {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
     const appKey = process.env.NEXT_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
     if (!appKey) {
       setMessage("NEXT_PUBLIC_KAKAO_MAP_APP_KEY 설정이 필요합니다.");
@@ -218,10 +226,10 @@ function MapPageClient() {
       clearZoneShapes();
       clearZoneParcelHighlights();
     };
-  }, [isLoggedIn]);
+  }, []);
 
   useEffect(() => {
-    if (!pnu || !isLoggedIn) return;
+    if (!pnu) return;
     if (loadedPnuRef.current === pnu) return;
 
     let cancelled = false;
@@ -245,7 +253,7 @@ function MapPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [pnu, isLoggedIn]);
+  }, [pnu]);
 
   useEffect(() => {
     if (!recordId || !isLoggedIn) return;
@@ -936,7 +944,7 @@ function MapPageClient() {
     zoneParcelPolygonsRef.current = [];
   };
 
-  return isLoggedIn ? (
+  return (
     <section className={`map-workbench ${mapPanelCollapsed ? "panel-collapsed" : ""}`}>
       <aside className={`lab-surface map-side-panel ${mapPanelCollapsed ? "collapsed" : ""}`}>
         <div className="map-panel-head">
@@ -953,13 +961,15 @@ function MapPageClient() {
         {!mapPanelCollapsed ? (
           <>
             <div className="search-tab-switch map-mode-switch">
-              <button type="button" className={`lab-toggle ${viewMode === "basic" ? "active" : ""}`} onClick={() => setViewMode("basic")}>
+              <button type="button" className={`lab-toggle ${viewMode === "basic" ? "active" : ""}`} onClick={() => handleModeChange("basic")}>
                 기본 조회
               </button>
-              <button type="button" className={`lab-toggle ${viewMode === "zone" ? "active" : ""}`} onClick={() => setViewMode("zone")}>
+              <button type="button" className={`lab-toggle ${viewMode === "zone" ? "active" : ""}`} onClick={() => handleModeChange("zone")}>
                 구역 조회
               </button>
             </div>
+
+            {!isLoggedIn ? <p className="map-inline-note">비로그인 상태에서는 기본조회만 사용할 수 있습니다.</p> : null}
 
             {viewMode === "basic" ? (
               <>
@@ -1011,72 +1021,81 @@ function MapPageClient() {
               </>
             ) : (
               <>
-                <div className="map-panel-zone-form">
-                  <input className="lab-input" value={zoneName} onChange={(event) => setZoneName(event.target.value)} placeholder="구역 이름" />
-                  <div className="map-panel-zone-points">선택 좌표 {zonePoints.length}개</div>
-                </div>
-
-                <div className="map-panel-actions stacked">
-                  <button type="button" className="lab-btn lab-btn-primary" onClick={() => void runZoneAnalyze()} disabled={zoneLoading || zonePoints.length < 3}>
-                    {zoneLoading ? "분석 중..." : "구역 분석"}
-                  </button>
-                  <button type="button" className="lab-btn lab-btn-secondary" onClick={undoZonePoint} disabled={zonePoints.length === 0 || zoneLoading}>
-                    되돌리기
-                  </button>
-                  <button type="button" className="lab-btn lab-btn-tertiary" onClick={clearZonePoints} disabled={zoneLoading}>
-                    초기화
-                  </button>
-                </div>
-
-                <div className="map-panel-summary">
-                  {zoneResult ? (
-                    <div className="map-side-metrics">
-                      <MetricCard label="구역 내 필지 수" value={formatNumber(zoneResult.summary.parcel_count)} />
-                      <MetricCard label="총 공시지가 합계" value={formatNumber(zoneResult.summary.assessed_total_price)} />
-                      <MetricCard label="노후도(%)" value={formatNumber(zoneResult.summary.aged_building_ratio)} />
-                      <MetricCard label="평균 용적률" value={formatNumber(zoneResult.summary.average_floor_area_ratio)} />
+                {isLoggedIn ? (
+                  <>
+                    <div className="map-panel-zone-form">
+                      <input className="lab-input" value={zoneName} onChange={(event) => setZoneName(event.target.value)} placeholder="구역 이름" />
+                      <div className="map-panel-zone-points">선택 좌표 {zonePoints.length}개</div>
                     </div>
-                  ) : (
-                    <div className="lab-empty-state compact">
-                      <strong>아직 구역 분석 결과가 없습니다.</strong>
-                      <p>지도에서 경계를 그리고 분석을 실행하면 요약 지표가 여기에 표시됩니다.</p>
+
+                    <div className="map-panel-actions stacked">
+                      <button type="button" className="lab-btn lab-btn-primary" onClick={() => void runZoneAnalyze()} disabled={zoneLoading || zonePoints.length < 3}>
+                        {zoneLoading ? "분석 중..." : "구역 분석"}
+                      </button>
+                      <button type="button" className="lab-btn lab-btn-secondary" onClick={undoZonePoint} disabled={zonePoints.length === 0 || zoneLoading}>
+                        되돌리기
+                      </button>
+                      <button type="button" className="lab-btn lab-btn-tertiary" onClick={clearZonePoints} disabled={zoneLoading}>
+                        초기화
+                      </button>
                     </div>
-                  )}
-                </div>
 
-                <div className="map-panel-actions map-zone-action-row">
-                  {!zoneResult?.summary.is_saved ? (
-                    <button type="button" className="lab-btn lab-btn-secondary" onClick={() => void runZoneSave()} disabled={!zoneResult || zoneSaveLoading}>
-                      {zoneSaveLoading ? "저장 중..." : "구역 저장"}
-                    </button>
-                  ) : (
-                    <span className="map-save-state">저장됨</span>
-                  )}
-                  <button
-                    type="button"
-                    className="lab-btn lab-btn-danger"
-                    onClick={() => void runZoneExclude()}
-                    disabled={!zoneResult || selectedZonePnuSet.size === 0 || zoneExcludeLoading}
-                  >
-                    {zoneExcludeLoading ? "처리 중..." : `선택 삭제 (${selectedZonePnuSet.size})`}
-                  </button>
-                  <button type="button" className="lab-btn lab-btn-tertiary" onClick={() => void runZoneDownload()} disabled={!zoneResult?.summary.is_saved}>
-                    CSV
-                  </button>
-                </div>
+                    <div className="map-panel-summary">
+                      {zoneResult ? (
+                        <div className="map-side-metrics">
+                          <MetricCard label="구역 내 필지 수" value={formatNumber(zoneResult.summary.parcel_count)} />
+                          <MetricCard label="총 공시지가 합계" value={formatNumber(zoneResult.summary.assessed_total_price)} />
+                          <MetricCard label="노후도(%)" value={formatNumber(zoneResult.summary.aged_building_ratio)} />
+                          <MetricCard label="평균 용적률" value={formatNumber(zoneResult.summary.average_floor_area_ratio)} />
+                        </div>
+                      ) : (
+                        <div className="lab-empty-state compact">
+                          <strong>아직 구역 분석 결과가 없습니다.</strong>
+                          <p>지도에서 경계를 그리고 분석을 실행하면 요약 지표가 여기에 표시됩니다.</p>
+                        </div>
+                      )}
+                    </div>
 
-                {zoneLibraryOpen ? (
-                  <ZoneLibraryPanel
-                    open={zoneLibraryOpen}
-                    loading={zoneListLoading}
-                    items={zoneList}
-                    activeZoneId={activeZoneId}
-                    busyZoneId={zoneItemBusyId}
-                    onSelect={(item) => void loadZoneById(item.zone_id)}
-                    onRename={(item) => void renameZoneItem(item)}
-                    onDelete={(item) => void deleteZoneItem(item)}
-                  />
-                ) : null}
+                    <div className="map-panel-actions map-zone-action-row">
+                      {!zoneResult?.summary.is_saved ? (
+                        <button type="button" className="lab-btn lab-btn-secondary" onClick={() => void runZoneSave()} disabled={!zoneResult || zoneSaveLoading}>
+                          {zoneSaveLoading ? "저장 중..." : "구역 저장"}
+                        </button>
+                      ) : (
+                        <span className="map-save-state">저장됨</span>
+                      )}
+                      <button
+                        type="button"
+                        className="lab-btn lab-btn-danger"
+                        onClick={() => void runZoneExclude()}
+                        disabled={!zoneResult || selectedZonePnuSet.size === 0 || zoneExcludeLoading}
+                      >
+                        {zoneExcludeLoading ? "처리 중..." : `선택 삭제 (${selectedZonePnuSet.size})`}
+                      </button>
+                      <button type="button" className="lab-btn lab-btn-tertiary" onClick={() => void runZoneDownload()} disabled={!zoneResult?.summary.is_saved}>
+                        CSV
+                      </button>
+                    </div>
+
+                    {zoneLibraryOpen ? (
+                      <ZoneLibraryPanel
+                        open={zoneLibraryOpen}
+                        loading={zoneListLoading}
+                        items={zoneList}
+                        activeZoneId={activeZoneId}
+                        busyZoneId={zoneItemBusyId}
+                        onSelect={(item) => void loadZoneById(item.zone_id)}
+                        onRename={(item) => void renameZoneItem(item)}
+                        onDelete={(item) => void deleteZoneItem(item)}
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="lab-empty-state compact">
+                    <strong>구역 조회는 로그인 후 사용할 수 있습니다.</strong>
+                    <p>비로그인 상태에서는 기본조회만 사용할 수 있으며, 구역 분석·저장·CSV 기능은 회원 전용입니다.</p>
+                  </div>
+                )}
               </>
             )}
           </>
@@ -1176,27 +1195,6 @@ function MapPageClient() {
           )}
         </section>
       </div>
-    </section>
-  ) : (
-    <section className="lab-surface map-guest-card">
-      <div className="lab-section-head">
-        <span className="lab-eyebrow">Locked Feature</span>
-        <h2>지도 분석은 로그인 후 사용할 수 있습니다.</h2>
-        <p>구역 분석, 저장 구역 관리, CSV 내보내기는 회원 기능으로 제공됩니다.</p>
-      </div>
-      <div className="lab-action-grid compact">
-        <article className="lab-action-card">
-          <span className="lab-card-kicker">구역 분석</span>
-          <p>폴리곤을 그려 포함 필지와 구역 집계 지표를 계산합니다.</p>
-        </article>
-        <article className="lab-action-card">
-          <span className="lab-card-kicker">사업성 지표</span>
-          <p>노후도, 용적률, 과소필지 비율을 구역 단위로 확인합니다.</p>
-        </article>
-      </div>
-      <button className="lab-btn lab-btn-primary" onClick={() => openAuth("login")}>
-        로그인하고 지도 분석 사용하기
-      </button>
     </section>
   );
 }

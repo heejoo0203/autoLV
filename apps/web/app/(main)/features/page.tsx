@@ -9,7 +9,7 @@ const quickActions = [
     title: "지도에서 조회",
     description: "필지를 클릭하거나 구역을 그려 공시지가와 사업성 지표를 확인합니다.",
     href: "/map",
-    locked: true,
+    locked: false,
   },
   {
     title: "주소로 조회",
@@ -46,15 +46,9 @@ export default function FeaturesPage() {
             지도 분석, 파일 분석을 한 흐름으로 연결했습니다.
           </p>
           <div className="lab-hero-actions">
-            {isLoggedIn ? (
-              <Link href="/map" className="lab-btn lab-btn-primary">
-                지도에서 바로 조회
-              </Link>
-            ) : (
-              <button type="button" className="lab-btn lab-btn-primary" onClick={() => openAuth("login")}>
-                로그인 후 지도 분석 사용
-              </button>
-            )}
+            <Link href="/map" className="lab-btn lab-btn-primary">
+              지도에서 바로 조회
+            </Link>
             <Link href="/search" className="lab-btn lab-btn-secondary">
               주소로 조회하기
             </Link>

@@ -15,7 +15,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { key: "features", label: "서비스 소개", href: "/features" },
-  { key: "map", label: "지도 분석", href: "/map", requiresAuth: true },
+  { key: "map", label: "지도 분석", href: "/map" },
   { key: "search", label: "개별 조회", href: "/search" },
   { key: "files", label: "파일 분석", href: "/files", requiresAuth: true },
   { key: "history", label: "이용내역", href: "/history", requiresAuth: true },
@@ -116,13 +116,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <Link href="/search" className={activeKey === "search" ? "active" : ""}>
           개별조회
         </Link>
-        <button
-          type="button"
-          className={activeKey === "map" ? "active" : ""}
-          onClick={() => openProtected("/map")}
-        >
+        <Link href="/map" className={activeKey === "map" ? "active" : ""}>
           지도분석
-        </button>
+        </Link>
         {isLoggedIn ? (
           <Link href="/history" className={activeKey === "history" ? "active" : ""}>
             내역

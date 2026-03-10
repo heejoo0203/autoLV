@@ -30,6 +30,7 @@ export default function FilesPage() {
   const [addressMode, setAddressMode] = useState<BulkAddressMode>("auto");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<"all" | BulkJob["status"]>("all");
 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -39,6 +40,10 @@ export default function FilesPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const latestJob = useMemo(() => (jobs.length > 0 ? jobs[0] : null), [jobs]);
+  const filteredJobs = useMemo(
+    () => (statusFilter === "all" ? jobs : jobs.filter((job) => job.status === statusFilter)),
+    [jobs, statusFilter],
+  );
   const hasRunningJob = useMemo(
     () => jobs.some((job) => job.status === "queued" || job.status === "processing"),
     [jobs]
@@ -273,8 +278,32 @@ export default function FilesPage() {
         onUpload={() => void handleUpload()}
         onDownloadTemplate={() => void handleTemplateDownload()}
       />
+      <section className="lab-surface">
+        <div className="lab-section-head compact">
+          <h2>작업 상태 필터</h2>
+          <p>실패 작업만 보거나 완료된 작업만 묶어 확인할 수 있습니다.</p>
+        </div>
+        <div className="map-zone-filter-row compact">
+          <button type="button" className={`lab-filter-chip ${statusFilter === "all" ? "active" : ""}`} onClick={() => setStatusFilter("all")}>
+            전체 {jobs.length}
+          </button>
+          <button type="button" className={`lab-filter-chip ${statusFilter === "queued" ? "active" : ""}`} onClick={() => setStatusFilter("queued")}>
+            대기 {jobs.filter((job) => job.status === "queued").length}
+          </button>
+          <button type="button" className={`lab-filter-chip ${statusFilter === "processing" ? "active" : ""}`} onClick={() => setStatusFilter("processing")}>
+            처리중 {jobs.filter((job) => job.status === "processing").length}
+          </button>
+          <button type="button" className={`lab-filter-chip ${statusFilter === "completed" ? "active" : ""}`} onClick={() => setStatusFilter("completed")}>
+            완료 {jobs.filter((job) => job.status === "completed").length}
+          </button>
+          <button type="button" className={`lab-filter-chip ${statusFilter === "failed" ? "active" : ""}`} onClick={() => setStatusFilter("failed")}>
+            실패 {jobs.filter((job) => job.status === "failed").length}
+          </button>
+        </div>
+      </section>
       <BulkJobTable
-        jobs={jobs}
+        jobs={filteredJobs}
+        hasAnyJobs={jobs.length > 0}
         page={page}
         totalPages={totalPages}
         loading={loading}

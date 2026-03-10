@@ -22,6 +22,9 @@ export function buildZoneComparisonSummary(
     target_zone_id: baseline.summary.zone_id ?? "",
     target_zone_name: baseline.summary.zone_name,
     target_updated_at: baseline.summary.updated_at,
+    current_zone_name: current.summary.zone_name,
+    current_updated_at: current.summary.updated_at,
+    compared_at: new Date().toISOString(),
     added_parcel_count: addedParcels.length,
     removed_parcel_count: removedParcels.length,
     added_parcels: addedParcels,
@@ -37,5 +40,11 @@ export function buildZoneComparisonSummary(
     boundary_parcel_delta: current.summary.boundary_parcel_count - baseline.summary.boundary_parcel_count,
     anomaly_parcel_delta: current.summary.anomaly_parcel_count - baseline.summary.anomaly_parcel_count,
     building_count_delta: current.summary.total_building_count - baseline.summary.total_building_count,
+    current_overlap_threshold: current.summary.overlap_threshold,
+    target_overlap_threshold: baseline.summary.overlap_threshold,
+    current_algorithm_version: current.summary.algorithm_version,
+    target_algorithm_version: baseline.summary.algorithm_version,
+    current_ai_model_version: current.summary.ai_model_version,
+    target_ai_model_version: baseline.summary.ai_model_version,
   };
 }

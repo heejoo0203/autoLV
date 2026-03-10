@@ -1217,10 +1217,22 @@ body > div[style*="position: fixed"] {
 }
 
 .bulk-job-diagnosis {
+  display: grid;
+  gap: 4px;
   margin: 8px 0 0;
   color: var(--lab-ink-soft);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.bulk-job-diagnosis p,
+.bulk-job-diagnosis span {
+  margin: 0;
+}
+
+.bulk-job-diagnosis span {
+  color: var(--lab-primary-strong);
+  font-weight: 700;
 }
 
 .map-zone-detail-row td {
@@ -2412,6 +2424,10 @@ body::before {
   margin: 16px 0 18px;
 }
 
+.map-zone-filter-row.compact {
+  margin: 12px 0 0;
+}
+
 .lab-filter-chip {
   min-height: 40px;
   padding: 0 14px;
@@ -3132,6 +3148,13 @@ body::before {
   padding-right: 4px;
 }
 
+.zone-compare-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 16px;
+}
+
 .zone-review-card {
   width: 100%;
   display: grid;
@@ -3185,6 +3208,25 @@ body::before {
 .zone-decision-explainer {
   display: grid;
   gap: 14px;
+}
+
+.zone-decision-details {
+  border: 1px solid rgba(18, 59, 102, 0.08);
+  border-radius: 16px;
+  background: rgba(248, 251, 253, 0.96);
+  padding: 0 14px 14px;
+}
+
+.zone-decision-details summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 2px 12px;
+  color: var(--lab-primary-strong);
+  font-weight: 800;
+}
+
+.zone-decision-details summary::-webkit-details-marker {
+  display: none;
 }
 
 .lab-inline-pill {
@@ -3580,7 +3622,8 @@ body::before {
   .zone-review-card-head,
   .zone-review-card-meta,
   .zone-review-card-actions,
-  .zone-compare-lists {
+  .zone-compare-lists,
+  .zone-compare-config-grid {
     display: grid;
     justify-content: stretch;
   }

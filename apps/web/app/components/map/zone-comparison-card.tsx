@@ -9,6 +9,10 @@ function formatSignedNumber(value: number | null): string {
   return `${prefix}${formatNumber(value)}`;
 }
 
+function formatThreshold(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 export function ZoneComparisonCard({
   comparison,
   loading,
@@ -36,7 +40,25 @@ export function ZoneComparisonCard({
         <>
           <div className="lab-inline-status neutral">
             <strong>{comparison.target_zone_name}</strong>
-            <span>{formatDateTime(comparison.target_updated_at)} 기준 저장본과 비교합니다.</span>
+            <span>{formatDateTime(comparison.target_updated_at)} 저장본과 {formatDateTime(comparison.compared_at)} 기준으로 비교합니다.</span>
+          </div>
+          <div className="zone-compare-config-grid">
+            <div className="map-zone-detail-item">
+              <span>현재 분석 기준</span>
+              <strong>{comparison.current_zone_name}</strong>
+            </div>
+            <div className="map-zone-detail-item">
+              <span>포함 임계값</span>
+              <strong>{formatThreshold(comparison.current_overlap_threshold)} → {formatThreshold(comparison.target_overlap_threshold)}</strong>
+            </div>
+            <div className="map-zone-detail-item">
+              <span>알고리즘 버전</span>
+              <strong>{comparison.current_algorithm_version} / {comparison.target_algorithm_version}</strong>
+            </div>
+            <div className="map-zone-detail-item">
+              <span>AI 모델</span>
+              <strong>{comparison.current_ai_model_version || "-"} / {comparison.target_ai_model_version || "-"}</strong>
+            </div>
           </div>
           <div className="map-result-metric-grid compact">
             <div className="map-zone-detail-item">

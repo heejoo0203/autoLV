@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import { formatArea, formatNumber } from "@/app/lib/map-view-utils";
 import type { MapZoneResponse } from "@/app/lib/types";
 
@@ -14,6 +16,8 @@ type ReviewItem = {
   title: string;
   reason: string;
 };
+
+type ReviewFilter = "all" | ReviewBucket;
 
 function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return "-";
@@ -141,9 +145,27 @@ export function ZoneReviewQueue({
 }) {
   if (!zoneResult) return null;
 
-  const reviewItems = buildReviewItems(zoneResult.parcels, deferredPnuSet);
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
+  const [showAllItems, setShowAllItems] = useState(false);
+
+  const reviewItems = useMemo(() => buildReviewItems(zoneResult.parcels, deferredPnuSet), [zoneResult.parcels, deferredPnuSet]);
+  const reviewCounts = useMemo(
+    () => ({
+      all: reviewItems.length,
+      anomaly: reviewItems.filter((item) => item.bucket === "anomaly").length,
+      conflict: reviewItems.filter((item) => item.bucket === "conflict").length,
+      boundary: reviewItems.filter((item) => item.bucket === "boundary").length,
+      ai: reviewItems.filter((item) => item.bucket === "ai").length,
+      deferred: reviewItems.filter((item) => item.bucket === "deferred").length,
+    }),
+    [reviewItems],
+  );
+  const filteredItems =
+    reviewFilter === "all" ? reviewItems : reviewItems.filter((item) => item.bucket === reviewFilter);
+  const visibleItems = showAllItems ? filteredItems : filteredItems.slice(0, 6);
   const activeParcel =
     zoneResult.parcels.find((item) => item.pnu === activePnu) ??
+    filteredItems.at(0)?.parcel ??
     reviewItems.at(0)?.parcel ??
     null;
 
@@ -153,15 +175,53 @@ export function ZoneReviewQueue({
         <strong>검토 큐</strong>
         <span>{formatNumber(reviewItems.length)}건</span>
       </div>
+      <div className="map-zone-filter-row compact">
+        <button
+          type="button"
+          className={`lab-filter-chip ${reviewFilter === "all" ? "active" : ""}`}
+          onClick={() => setReviewFilter("all")}
+        >
+          전체 {formatNumber(reviewCounts.all)}
+        </button>
+        <button
+          type="button"
+          className={`lab-filter-chip ${reviewFilter === "boundary" ? "active" : ""}`}
+          onClick={() => setReviewFilter("boundary")}
+        >
+          경계 후보 {formatNumber(reviewCounts.boundary)}
+        </button>
+        <button
+          type="button"
+          className={`lab-filter-chip ${reviewFilter === "conflict" ? "active" : ""}`}
+          onClick={() => setReviewFilter("conflict")}
+        >
+          AI 충돌 {formatNumber(reviewCounts.conflict)}
+        </button>
+        <button
+          type="button"
+          className={`lab-filter-chip ${reviewFilter === "anomaly" ? "active" : ""}`}
+          onClick={() => setReviewFilter("anomaly")}
+        >
+          이상치 {formatNumber(reviewCounts.anomaly)}
+        </button>
+        <button
+          type="button"
+          className={`lab-filter-chip ${reviewFilter === "deferred" ? "active" : ""}`}
+          onClick={() => setReviewFilter("deferred")}
+        >
+          보류 {formatNumber(reviewCounts.deferred)}
+        </button>
+      </div>
 
-      {reviewItems.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <div className="lab-empty-state compact">
-          <strong>지금 바로 검토가 필요한 필지가 없습니다.</strong>
-          <p>확정 포함/제외 판정만으로도 현재 결과를 검토할 수 있습니다.</p>
+          <strong>{reviewFilter === "all" ? "지금 바로 검토가 필요한 필지가 없습니다." : "선택한 조건의 검토 대상이 없습니다."}</strong>
+          <p>필터를 바꾸거나 확정 포함/제외 판정만으로 현재 결과를 검토할 수 있습니다.</p>
         </div>
       ) : (
-        <div className="zone-review-list">
-          {reviewItems.map((item) => (
+        <>
+          <div className="zone-review-list">
+          {visibleItems.map((item) => (
             <button
               key={item.parcel.pnu}
               type="button"
@@ -195,7 +255,19 @@ export function ZoneReviewQueue({
               </div>
             </button>
           ))}
-        </div>
+          </div>
+          {filteredItems.length > visibleItems.length ? (
+            <div className="map-result-action-row">
+              <button
+                type="button"
+                className="lab-btn lab-btn-tertiary compact"
+                onClick={() => setShowAllItems((prev) => !prev)}
+              >
+                {showAllItems ? "검토 큐 접기" : `검토 큐 더 보기 (${formatNumber(filteredItems.length - visibleItems.length)})`}
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
 
       {activeParcel ? (
@@ -205,45 +277,48 @@ export function ZoneReviewQueue({
             <span>{activeParcel.jibun_address || activeParcel.pnu}</span>
           </div>
           <p>{buildDecisionExplanation(activeParcel)}</p>
-          <div className="map-result-metric-grid compact">
-            <div className="map-zone-detail-item">
-              <span>포함 방식</span>
-              <strong>{activeParcel.inclusion_mode}</strong>
+          <details className="zone-decision-details" open>
+            <summary>판정 근거 상세</summary>
+            <div className="map-result-metric-grid compact">
+              <div className="map-zone-detail-item">
+                <span>포함 방식</span>
+                <strong>{activeParcel.inclusion_mode}</strong>
+              </div>
+              <div className="map-zone-detail-item">
+                <span>겹침률</span>
+                <strong>{formatPercent(activeParcel.overlap_ratio * 100)}</strong>
+              </div>
+              <div className="map-zone-detail-item">
+                <span>교집합 면적</span>
+                <strong>{formatArea(activeParcel.overlap_area_sqm)}</strong>
+              </div>
+              <div className="map-zone-detail-item">
+                <span>중심점 포함</span>
+                <strong>{activeParcel.centroid_in ? "예" : "아니오"}</strong>
+              </div>
+              <div className="map-zone-detail-item">
+                <span>규칙 신뢰도</span>
+                <strong>{formatPercent(activeParcel.confidence_score * 100)}</strong>
+              </div>
+              <div className="map-zone-detail-item">
+                <span>AI 추천</span>
+                <strong>
+                  {activeParcel.ai_recommendation || "-"}
+                  {activeParcel.ai_confidence_score !== null
+                    ? ` · ${formatPercent(activeParcel.ai_confidence_score * 100)}`
+                    : ""}
+                </strong>
+              </div>
+              <div className="map-zone-detail-item">
+                <span>이상치 수준</span>
+                <strong>{activeParcel.anomaly_level || "none"}</strong>
+              </div>
+              <div className="map-zone-detail-item">
+                <span>판정 출처</span>
+                <strong>{activeParcel.selection_origin}</strong>
+              </div>
             </div>
-            <div className="map-zone-detail-item">
-              <span>겹침률</span>
-              <strong>{formatPercent(activeParcel.overlap_ratio * 100)}</strong>
-            </div>
-            <div className="map-zone-detail-item">
-              <span>교집합 면적</span>
-              <strong>{formatArea(activeParcel.overlap_area_sqm)}</strong>
-            </div>
-            <div className="map-zone-detail-item">
-              <span>중심점 포함</span>
-              <strong>{activeParcel.centroid_in ? "예" : "아니오"}</strong>
-            </div>
-            <div className="map-zone-detail-item">
-              <span>규칙 신뢰도</span>
-              <strong>{formatPercent(activeParcel.confidence_score * 100)}</strong>
-            </div>
-            <div className="map-zone-detail-item">
-              <span>AI 추천</span>
-              <strong>
-                {activeParcel.ai_recommendation || "-"}
-                {activeParcel.ai_confidence_score !== null
-                  ? ` · ${formatPercent(activeParcel.ai_confidence_score * 100)}`
-                  : ""}
-              </strong>
-            </div>
-            <div className="map-zone-detail-item">
-              <span>이상치 수준</span>
-              <strong>{activeParcel.anomaly_level || "none"}</strong>
-            </div>
-            <div className="map-zone-detail-item">
-              <span>판정 출처</span>
-              <strong>{activeParcel.selection_origin}</strong>
-            </div>
-          </div>
+          </details>
         </div>
       ) : null}
     </section>

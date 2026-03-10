@@ -277,6 +277,9 @@ export type MapZoneComparisonSummary = {
   target_zone_id: string;
   target_zone_name: string;
   target_updated_at: string;
+  current_zone_name: string;
+  current_updated_at: string;
+  compared_at: string;
   added_parcel_count: number;
   removed_parcel_count: number;
   added_parcels: MapZoneComparisonParcelDelta[];
@@ -288,4 +291,10 @@ export type MapZoneComparisonSummary = {
   boundary_parcel_delta: number;
   anomaly_parcel_delta: number;
   building_count_delta: number;
+  current_overlap_threshold: number;
+  target_overlap_threshold: number;
+  current_algorithm_version: string;
+  target_algorithm_version: string;
+  current_ai_model_version: string | null;
+  target_ai_model_version: string | null;
 };

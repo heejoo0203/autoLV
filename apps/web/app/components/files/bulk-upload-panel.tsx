@@ -2,6 +2,7 @@
 
 import { useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 
+import { LoadingIndicator } from "@/app/components/ui/loading-indicator";
 import type { BulkAddressMode, BulkGuide, BulkJob } from "@/app/lib/types";
 
 type Props = {
@@ -137,7 +138,7 @@ export function BulkUploadPanel(props: Props) {
             <option value="road">도로명</option>
           </select>
           <button type="button" className="btn-primary full" disabled={props.uploading} onClick={props.onUpload}>
-            {props.uploading ? "조회 중..." : "조회"}
+            {props.uploading ? <LoadingIndicator label="조회 중" kind="dots" /> : "조회"}
           </button>
           {props.selectedFileName ? (
             <div className="hint">

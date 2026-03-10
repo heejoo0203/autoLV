@@ -122,7 +122,7 @@ export function ZoneResultTable({
 
   return (
     <>
-      <div className="map-metrics">
+      <div className="map-metrics zone-summary-grid">
         <MetricCard label="구역명" value={summary.zone_name} />
         <MetricCard label="기준연도(최신)" value={summary.base_year || "-"} />
         <MetricCard label="포함 필지 면적(㎡)" value={formatArea(summary.zone_area_sqm)} />

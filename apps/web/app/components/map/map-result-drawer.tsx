@@ -2,6 +2,7 @@
 
 import { MapRowsTable } from "@/app/components/map/map-rows-table";
 import { MetricCard } from "@/app/components/map/metric-card";
+import { LoadingIndicator } from "@/app/components/ui/loading-indicator";
 import { ZoneComparisonCard } from "@/app/components/map/zone-comparison-card";
 import { ZoneReviewQueue } from "@/app/components/map/zone-review-queue";
 import { ZoneResultTable } from "@/app/components/map/zone-result-table";
@@ -125,10 +126,10 @@ export function MapResultDrawer({
                   주소 복사
                 </button>
                 <button type="button" className="lab-btn lab-btn-secondary compact" onClick={onToggleLandDetails} disabled={detailLoading}>
-                  {detailLoading ? "불러오는 중..." : showLandDetails ? "토지특성 닫기" : "토지특성 열기"}
+                  {detailLoading ? <LoadingIndicator label="불러오는 중" kind="dots" /> : showLandDetails ? "토지특성 닫기" : "토지특성 열기"}
                 </button>
                 <button type="button" className="lab-btn lab-btn-tertiary compact" onClick={onLoadRows} disabled={yearlyLoading}>
-                  {yearlyLoading ? "조회 중..." : "연도별 이력"}
+                  {yearlyLoading ? <LoadingIndicator label="조회 중" kind="dots" /> : "연도별 이력"}
                 </button>
                 <button type="button" className="lab-btn lab-btn-tertiary compact" onClick={onDownloadCsv}>
                   CSV

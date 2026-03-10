@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     map_zone_query_timeout_ms: int = Field(default=30_000, alias="MAP_ZONE_QUERY_TIMEOUT_MS")
     map_zone_vworld_page_size: int = Field(default=1000, alias="MAP_ZONE_VWORLD_PAGE_SIZE")
     map_zone_vworld_max_pages: int = Field(default=50, alias="MAP_ZONE_VWORLD_MAX_PAGES")
-    map_zone_max_included_parcels: int = Field(default=1000, alias="MAP_ZONE_MAX_INCLUDED_PARCELS")
+    map_zone_max_included_parcels: int = Field(default=3000, alias="MAP_ZONE_MAX_INCLUDED_PARCELS")
     map_zone_bbox_split_max_depth: int = Field(default=4, alias="MAP_ZONE_BBOX_SPLIT_MAX_DEPTH")
     map_zone_land_metadata_sync_limit: int = Field(default=80, alias="MAP_ZONE_LAND_METADATA_SYNC_LIMIT")
     map_zone_land_metadata_workers: int = Field(default=6, alias="MAP_ZONE_LAND_METADATA_WORKERS")

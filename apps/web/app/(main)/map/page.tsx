@@ -7,6 +7,7 @@ import { useAuth } from "@/app/components/auth-provider";
 import { MapFloatingWorkbench } from "@/app/components/map/map-floating-workbench";
 import { MapResultDrawer } from "@/app/components/map/map-result-drawer";
 import { MapWorkspaceToolbar } from "@/app/components/map/map-workspace-toolbar";
+import { LoadingIndicator } from "@/app/components/ui/loading-indicator";
 import { ZoneLibraryPanel } from "@/app/components/map/zone-library-panel";
 import { createSearchHistoryLog, fetchSearchHistoryDetail } from "@/app/lib/history-api";
 import {
@@ -1399,7 +1400,13 @@ function MapPageClient() {
         <div className="map-overlay map-overlay-status">
           <div className={`map-status-pill ${loading || addressLoading || zoneLoading ? "busy" : ""}`}>
             <strong>{viewMode === "basic" ? "필지 조회" : "구역 분석"}</strong>
-            <span>{loading || addressLoading || zoneLoading ? "데이터를 불러오는 중입니다." : message}</span>
+            <span>
+              {loading || addressLoading || zoneLoading ? (
+                <LoadingIndicator label="데이터를 불러오는 중입니다" kind="spinner" />
+              ) : (
+                message
+              )}
+            </span>
           </div>
         </div>
 

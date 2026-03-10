@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/app/components/auth-provider";
+import { LoadingIndicator } from "@/app/components/ui/loading-indicator";
 import { ROAD_INITIALS } from "@/app/lib/address";
 import { apiFetch, extractError, safeJson } from "@/app/lib/api-client";
 import { createSearchHistoryLog, fetchSearchHistoryDetail } from "@/app/lib/history-api";
@@ -650,9 +651,11 @@ function SearchPageClient() {
 
           <div className="search-form-actions">
             <button className="lab-btn lab-btn-primary" onClick={() => void runSearch()} disabled={searching}>
-              {searching ? "조회 중..." : "필지 조회"}
+              {searching ? <LoadingIndicator label="조회 중" kind="dots" /> : "필지 조회"}
             </button>
-            <p className="search-status-text">{message}</p>
+            <p className={`search-status-text ${searching ? "busy" : ""}`}>
+              {searching ? <LoadingIndicator label="데이터를 정리하고 있습니다" kind="dots" /> : message}
+            </p>
           </div>
         </section>
 
@@ -786,28 +789,22 @@ function SearchPageClient() {
               ) : null}
 
               <div className="search-detail-table">
-                <table className="data-table mobile-card-table">
+                <table className="data-table mobile-card-table search-yearly-table">
                   <thead>
                     <tr>
                       <th>가격기준년도</th>
-                      <th>토지소재지</th>
-                      <th>지번</th>
                       <th>개별공시지가</th>
                       <th>기준일자</th>
                       <th>공시일자</th>
-                      <th>비고</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row, idx) => (
                       <tr key={`${row.토지소재지}-${idx}`}>
                         <td data-label="가격기준년도">{row.기준년도}</td>
-                        <td data-label="토지소재지">{row.토지소재지}</td>
-                        <td data-label="지번">{row.지번}</td>
                         <td data-label="개별공시지가">{row.개별공시지가}</td>
                         <td data-label="기준일자">{row.기준일자}</td>
                         <td data-label="공시일자">{row.공시일자}</td>
-                        <td data-label="비고">{row.비고}</td>
                       </tr>
                     ))}
                   </tbody>

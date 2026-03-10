@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
+import { LoadingIndicator } from "@/app/components/ui/loading-indicator";
 import type { MapLookupResponse } from "@/app/lib/types";
 
 export type MapQuickSearchOption = {
@@ -113,7 +114,7 @@ export function MapFloatingWorkbench({
                   placeholder="주소, 지번, PNU를 입력하세요"
                 />
                 <button type="submit" className="lab-btn lab-btn-primary compact" disabled={addressLoading}>
-                  {addressLoading ? "조회 중" : "검색"}
+                  {addressLoading ? <LoadingIndicator label="조회 중" kind="dots" /> : "검색"}
                 </button>
               </form>
 
@@ -192,7 +193,7 @@ export function MapFloatingWorkbench({
                 </div>
                 <div className="map-zone-primary-actions">
                   <button type="button" className="lab-btn lab-btn-primary" onClick={onZoneAnalyze} disabled={zoneLoading || zonePointCount < 3}>
-                    {zoneLoading ? "분석 중..." : "구역 분석"}
+                    {zoneLoading ? <LoadingIndicator label="분석 중" kind="dots" /> : "구역 분석"}
                   </button>
                   <button type="button" className="lab-btn lab-btn-tertiary" onClick={onUndoZonePoint} disabled={zonePointCount === 0 || zoneLoading}>
                     마지막 점 되돌리기

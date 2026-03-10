@@ -6,7 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Load defaults from .env.example first, then let .env override.
-    model_config = SettingsConfigDict(env_file=(".env.example", ".env"), env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=(".env.example", ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_name: str = "필지랩 API"
     cors_origins: str = Field(

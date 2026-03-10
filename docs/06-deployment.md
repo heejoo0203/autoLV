@@ -80,6 +80,14 @@ MAP_ZONE_AI_INCLUDE_THRESHOLD=0.82
 MAP_ZONE_AI_UNCERTAIN_THRESHOLD=0.55
 ```
 
+파일조회 워커 분리:
+```env
+BULK_EXECUTION_MODE=queue
+BULK_QUEUE_NAME=piljilab:bulk:jobs
+BULK_QUEUE_PROCESSING_NAME=piljilab:bulk:jobs:processing
+BULK_WORKER_POLL_SECONDS=5
+```
+
 ### 3.2 Web (`apps/web`)
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://<railway-api-domain>
@@ -132,6 +140,22 @@ Root Directory: `apps/web`
 7. 구역조회 응답에 `노후도`, `평균 용적률`, `과소필지 비율` 포함
 8. 구역조회 응답에 `AI 추천`, `AI 요약`, `이상치 검토`, `selection_origin` 포함
 
+## 6-1. Bulk Worker 배포
+- API와 별도 프로세스로 `apps/api/scripts/run_bulk_worker.py` 실행
+- 운영에서는 API 서비스와 분리된 Railway worker 또는 별도 프로세스를 권장
+
+예시:
+```bash
+cd apps/api
+python scripts/run_bulk_worker.py
+```
+
+운영 체크:
+1. 업로드 직후 `bulk_jobs.status=queued`
+2. 워커가 큐 메시지를 가져가면 `processing`
+3. 완료 시 `completed` + 결과 파일 경로 저장
+4. 워커 재시작 시 processing 큐에 남은 메시지가 pending으로 복구되는지 확인
+
 ## 7. VWorld 우회 프록시(필요 시)
 Railway -> VWorld 직접 호출이 차단/불안정할 때 적용한다.
 
@@ -167,6 +191,7 @@ Railway -> VWorld 직접 호출이 차단/불안정할 때 적용한다.
 2. 개별조회: 지번/도로명 조회
 3. 지도조회: 지도 렌더링/클릭/주소검색/CSV/상세조회/구역 분석
 4. 파일조회: 업로드/진행률/다운로드/삭제
+4-1. bulk worker: 큐 적재/처리/재시작 복구
 5. 조회기록: 저장/필터/정렬/페이지 이동 복원/선택 삭제
 6. 마이페이지: 이름/연락처/이미지 수정, 약관 확인, 탈퇴
 7. 구역 사업성 분석: 건축물 수/노후도/평균 용적률/과소필지 비율

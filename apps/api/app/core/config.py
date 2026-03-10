@@ -52,9 +52,19 @@ class Settings(BaseSettings):
 
     bulk_storage_dir: str = Field(default="./storage/bulk", alias="BULK_STORAGE_DIR")
     bulk_max_rows: int = Field(default=10000, alias="BULK_MAX_ROWS")
+    bulk_execution_mode: str = Field(default="queue", alias="BULK_EXECUTION_MODE")
+    bulk_queue_name: str = Field(default="piljilab:bulk:jobs", alias="BULK_QUEUE_NAME")
+    bulk_queue_processing_name: str = Field(
+        default="piljilab:bulk:jobs:processing",
+        alias="BULK_QUEUE_PROCESSING_NAME",
+    )
+    bulk_worker_poll_seconds: int = Field(default=5, alias="BULK_WORKER_POLL_SECONDS")
     bulk_lookup_workers: int = Field(default=6, alias="BULK_LOOKUP_WORKERS")
     bulk_progress_update_min_seconds: float = Field(default=1.0, alias="BULK_PROGRESS_UPDATE_MIN_SECONDS")
     profile_image_dir: str = Field(default="./storage/profile_images", alias="PROFILE_IMAGE_DIR")
+    admin_seed_email: str = Field(default="", alias="ADMIN_SEED_EMAIL")
+    admin_seed_password: str = Field(default="", alias="ADMIN_SEED_PASSWORD")
+    admin_seed_name: str = Field(default="admin", alias="ADMIN_SEED_NAME")
     redis_url: str = Field(default="", alias="REDIS_URL")
     redis_pnu_ttl_seconds: int = Field(default=86400, alias="REDIS_PNU_TTL_SECONDS")
     map_price_cache_ttl_seconds: int = Field(default=86400, alias="MAP_PRICE_CACHE_TTL_SECONDS")

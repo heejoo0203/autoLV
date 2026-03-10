@@ -37,6 +37,10 @@ python scripts/run_migrations.py
 - `LD_CODE_FILE_PATH`: 법정동 코드 파일 경로(미입력 시 `apps/web/public/ld_codes.json` 자동 탐색)
 - `BULK_STORAGE_DIR`: 파일조회 업로드/결과 파일 저장 경로
 - `BULK_MAX_ROWS`: 파일조회 최대 허용 행 수 (기본 `10000`)
+- `BULK_EXECUTION_MODE`: `queue` 또는 `background`
+- `BULK_QUEUE_NAME`: Redis 대기 큐 이름
+- `BULK_QUEUE_PROCESSING_NAME`: Redis 처리 중 큐 이름
+- `BULK_WORKER_POLL_SECONDS`: 워커 polling 간격
 - `PROFILE_IMAGE_DIR`: 프로필 이미지 저장 경로
 
 참고:
@@ -51,6 +55,16 @@ python scripts/run_migrations.py
 cd apps/api
 alembic upgrade head
 ```
+
+## Bulk Worker
+권장 실행:
+```bash
+cd apps/api
+python scripts/run_bulk_worker.py
+```
+
+- `REDIS_URL` + `BULK_EXECUTION_MODE=queue` 조합이면 업로드 작업이 Redis 큐로 들어갑니다.
+- 로컬에서 Redis가 없으면 `BULK_EXECUTION_MODE=background`로 돌릴 수 있습니다.
 
 ## 엔드포인트
 - `GET /` : 서비스 상태

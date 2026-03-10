@@ -21,7 +21,7 @@
 ### 2) 파일조회 (최대 10,000행)
 - 표준 양식/가이드 제공
 - 업로드 파일 헤더 자동 매핑 및 전처리
-- 비동기 처리 + 진행률 표시
+- Redis 큐 + 워커 분리형 비동기 처리 + 진행률 표시
 - 완료 시 결과 파일 다운로드
 - 작업 이력 페이징/선택 삭제
 
@@ -108,6 +108,8 @@ copy apps\\web\\.env.example apps\\web\\.env.local
   - `VWORLD_API_DOMAIN`
   - `CORS_ORIGINS`
   - `ROAD_NAME_FILE_PATH`
+  - `REDIS_URL`
+  - `BULK_EXECUTION_MODE`, `BULK_QUEUE_NAME`, `BULK_QUEUE_PROCESSING_NAME`, `BULK_WORKER_POLL_SECONDS`
   - `MAIL_DELIVERY_MODE`, `MAIL_FROM`
   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
   - (선택) `VWORLD_PROXY_URL`, `VWORLD_PROXY_TOKEN`
@@ -125,6 +127,15 @@ pip install -r requirements.txt
 python scripts/run_migrations.py
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+## 3-1. Bulk Worker 실행
+```bash
+cd apps/api
+python scripts/run_bulk_worker.py
+```
+
+- 운영 환경에서는 API 프로세스와 별도 서비스로 실행하는 것을 권장합니다.
+- `REDIS_URL`이 없거나 `BULK_EXECUTION_MODE=background`이면 기존 `BackgroundTasks` fallback으로 동작합니다.
 
 ## 4. Web 실행
 ```bash
@@ -191,11 +202,12 @@ autoLV/
   apps/
     api/      # 현재 운영 API
     web/      # 현재 운영 웹
+    mobile/   # Android wrapper
   docs/
   infra/
-  backend/   # legacy
-  frontend/  # legacy
-  crawler/   # legacy
+  backend/   # legacy (보관용)
+  frontend/  # legacy (보관용)
+  crawler/   # legacy (보관용)
 ```
 
 ## 기여 규칙

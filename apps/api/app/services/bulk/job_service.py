@@ -13,6 +13,7 @@ from app.schemas.bulk import BulkGuideResponse, BulkJobItemResponse
 from app.services.bulk.constants import HEADER_ALIASES, REQUIRED_COMMON, RECOMMENDED_JIBUN, RECOMMENDED_ROAD
 from app.services.bulk.job_storage import save_uploaded_file
 from app.services.bulk.processor import process_bulk_job
+from app.services.bulk.queue import enqueue_bulk_job_message, is_bulk_queue_enabled
 from app.services.bulk.table_reader import load_tabular_data
 
 _ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv"}
@@ -75,7 +76,16 @@ def create_bulk_job_and_schedule(
         upload_path=str(upload_path),
         total_rows=total_rows,
     )
-    background_tasks.add_task(process_bulk_job, job_id=job.id, address_mode=address_mode)
+    if is_bulk_queue_enabled():
+        try:
+            enqueue_bulk_job_message(job_id=job.id, address_mode=address_mode)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"code": "BULK_QUEUE_UNAVAILABLE", "message": f"작업 큐 연결에 실패했습니다: {exc}"},
+            ) from exc
+    else:
+        background_tasks.add_task(process_bulk_job, job_id=job.id, address_mode=address_mode)
     return job
 
 

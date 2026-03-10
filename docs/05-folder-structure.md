@@ -76,6 +76,7 @@ autoLV/
           bulk/
             constants.py
             column_mapper.py
+            queue.py
             normalizer.py
             processor.py
             result_writer.py
@@ -86,6 +87,7 @@ autoLV/
         main.py
       scripts/
         run_migrations.py
+        run_bulk_worker.py
         reset_db_and_seed_admin.py
       storage/                       # 런타임 생성
       .env.example
@@ -177,6 +179,7 @@ autoLV/
 
 ## 2. 구조 설명
 - `apps/api`: FastAPI 서버/비즈니스 로직/DB 마이그레이션
+- `apps/api/scripts/run_bulk_worker.py`: Redis 기반 파일조회 전용 워커
 - `apps/web`: Next.js 웹 서비스(개별조회/지도조회/파일조회/조회기록/마이페이지)
 - `apps/mobile`: Capacitor 기반 Android 래퍼 앱
 - `infra/vworld-proxy`: VWorld 고정 IP 프록시 서비스
@@ -193,6 +196,7 @@ autoLV/
 ## 4. 모듈 분리 원칙
 - API는 `api -> schemas -> services -> repositories -> models` 계층으로 분리
 - Bulk 처리 로직은 `services/bulk/*`로 세분화해 유지보수성 확보
+- bulk 실행 경로는 `job_service.py -> queue.py -> run_bulk_worker.py -> processor.py`로 분리해 API 프로세스와 작업 프로세스를 분리
 - Web은 페이지/컴포넌트/API 클라이언트(`lib/*`)를 분리
 - 지도조회/조회기록은 페이지 단의 UI와 API 호출 모듈을 분리
 - 저장 구역/조회기록 삭제처럼 목록성 기능은 페이지 UI와 API 클라이언트 분리 원칙 유지
@@ -202,6 +206,7 @@ autoLV/
 - AI 1차 계층은 `map_zone/ai.py`에 격리해 추천/이상치/신뢰도 계산을 공간 계산 로직과 분리
 - AI 피드백은 `zone_ai_feedback.py` 모델과 `/map/zones/{zone_id}/parcels/decision` 경로로 분리
 - 향후 raw / normalized / serving 계층 도입 시 서비스/모델도 같은 단위로 분리
+- legacy 디렉터리(`backend`, `frontend`, `crawler`)는 각 폴더의 `README.md`로 현재 비운영 상태를 명시
 
 ## 5. 향후 확장 권장
 - 지도 폴리곤 분석 고도화 시 AI/보정 계층 추가 권장:

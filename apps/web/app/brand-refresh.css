@@ -795,12 +795,14 @@ body > div[style*="position: fixed"] {
 .search-yearly-table thead th {
   padding: 14px 10px;
   font-size: 13px;
+  letter-spacing: -0.03em;
 }
 
 .map-yearly-table tbody td,
 .search-yearly-table tbody td {
   padding: 14px 10px;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
 }
 
 .checkbox-col,
@@ -3083,12 +3085,12 @@ body::before {
   top: 88px;
   right: 18px;
   bottom: 18px;
-  z-index: 13;
+  z-index: 16;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   width: min(468px, calc(100vw - 470px));
-  transform: translateX(calc(100% - 54px));
+  transform: translateX(calc(100% - 156px));
   transition: transform 0.24s ease;
   pointer-events: none;
 }
@@ -3107,18 +3109,23 @@ body::before {
 }
 
 .map-result-drawer-handle {
-  align-self: center;
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
   min-height: 52px;
-  padding: 0 16px;
-  margin-top: 0;
+  min-width: 136px;
+  padding: 0 20px;
+  margin-top: 96px;
   border: 1px solid rgba(255, 255, 255, 0.84);
-  border-radius: 16px 0 0 16px;
+  border-radius: 18px 0 0 18px;
   background: rgba(255, 255, 255, 0.92);
   color: var(--lab-primary-strong);
   font: inherit;
   font-size: 13px;
   font-weight: 800;
   box-shadow: 0 12px 24px rgba(16, 35, 63, 0.1);
+  white-space: nowrap;
+  text-align: center;
 }
 
 .map-result-drawer-body {
@@ -3221,6 +3228,24 @@ body::before {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.map-result-metric-grid .metric-card {
+  min-height: 132px;
+  display: grid;
+  align-content: start;
+}
+
+.map-result-drawer.basic-mode .metric-value,
+.map-result-drawer.basic-mode .metric-value.compact-lg,
+.map-result-drawer.basic-mode .metric-value.compact-xl {
+  font-size: clamp(16px, 1.45vw, 22px);
+  line-height: 1.22;
+  letter-spacing: -0.04em;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
 .map-result-section {
@@ -3658,6 +3683,7 @@ body::before {
   .map-result-drawer.zone-mode,
   .map-result-drawer {
     width: min(460px, calc(100vw - 420px));
+    transform: translateX(calc(100% - 156px));
   }
 }
 
@@ -3756,8 +3782,32 @@ body::before {
   .map-result-drawer-handle {
     width: 100%;
     align-self: stretch;
+    min-width: 0;
     margin-top: 0;
     border-radius: 18px 18px 0 0;
+  }
+
+  .map-result-drawer.basic-mode .metric-value,
+  .map-result-drawer.basic-mode .metric-value.compact-lg,
+  .map-result-drawer.basic-mode .metric-value.compact-xl {
+    font-size: clamp(14px, 4.2vw, 18px);
+    line-height: 1.18;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .map-yearly-table thead th,
+  .search-yearly-table thead th {
+    padding: 12px 6px;
+    font-size: 12px;
+  }
+
+  .map-yearly-table tbody td,
+  .search-yearly-table tbody td {
+    padding: 12px 6px;
+    font-size: 12px;
   }
 
   .map-result-drawer-body {

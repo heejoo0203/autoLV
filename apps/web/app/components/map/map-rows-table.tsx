@@ -3,6 +3,16 @@
 import { LoadingIndicator } from "@/app/components/ui/loading-indicator";
 import type { LandResultRow } from "@/app/lib/types";
 
+function formatBaseDate(value: string | null | undefined): string {
+  if (!value) return "-";
+  const trimmed = value.trim();
+  const match = trimmed.match(/^0?(\d{1,2})월\s*0?(\d{1,2})일$/);
+  if (match) {
+    return `${Number(match[1])}/${Number(match[2])}`;
+  }
+  return trimmed;
+}
+
 export function MapRowsTable({
   rows,
   cacheHit,
@@ -29,7 +39,13 @@ export function MapRowsTable({
     );
   }
   return (
-    <table className="data-table map-yearly-table">
+    <table className="data-table map-yearly-table mobile-card-table">
+      <colgroup>
+        <col style={{ width: "20%" }} />
+        <col style={{ width: "34%" }} />
+        <col style={{ width: "16%" }} />
+        <col style={{ width: "30%" }} />
+      </colgroup>
       <thead>
         <tr>
           <th>가격기준년도</th>
@@ -41,10 +57,10 @@ export function MapRowsTable({
       <tbody>
         {rows.map((row, idx) => (
           <tr key={`${row.토지소재지}-${row.기준년도}-${idx}`}>
-            <td>{row.기준년도}</td>
-            <td>{row.개별공시지가}</td>
-            <td>{row.기준일자}</td>
-            <td>{row.공시일자}</td>
+            <td data-label="가격기준년도">{row.기준년도}</td>
+            <td data-label="개별공시지가">{row.개별공시지가}</td>
+            <td data-label="기준일자">{formatBaseDate(row.기준일자)}</td>
+            <td data-label="공시일자">{row.공시일자}</td>
           </tr>
         ))}
       </tbody>

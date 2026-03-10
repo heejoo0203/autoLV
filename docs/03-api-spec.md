@@ -1,4 +1,4 @@
-# API 명세 (v3 안정화)
+# API 명세 (2026-03-10 기준, v3.0 준비 중)
 
 기본 경로: `/api/v1`  
 인증: 쿠키 기반 JWT (`access_token`, `refresh_token`)
@@ -9,7 +9,8 @@
   - 재현성: 기준연도, 알고리즘 버전, 선택 기준
   - 설명 가능성: overlap, confidence, recommendation, anomaly
   - 재작업: 저장/비교/피드백/실패 진단
-- 이번 주 문서 기준 우선순위는 대형 신규 API보다 기존 응답의 안정화와 UI/UX 연계를 강화하는 것이다.
+- 최신 안정 릴리즈는 `v2.2.1`이며, 현재 브랜치에는 건축물 지표와 휴리스틱 AI 보조 응답이 반영돼 있다.
+- 이번 문서 기준 우선순위는 대형 신규 API보다 기존 응답의 안정화와 UI/UX 연계를 강화하는 것이다.
 
 ## 0. 공통
 ### GET `/`
@@ -616,7 +617,7 @@
 - `parcels[].geometry_geojson`는 지도에서 포함/경계 필지를 별도 색상으로 강조하기 위한 도형 데이터다.
 - `summary.total_floor_area_sqm / summary.total_site_area_sqm` 기준으로 평균 용적률을 계산한다.
 - `summary.undersized_parcel_ratio`는 기본적으로 `90㎡ 미만 필지 비율`이다.
-- `parcels[].inclusion_mode`는 `rule_overlap | score_auto | boundary_candidate | excluded | user_excluded` 중 하나다.
+- `parcels[].inclusion_mode`는 미리보기에서는 `rule_overlap | score_auto | boundary_candidate | excluded | user_excluded`를 주로 사용하고, 저장 후 사용자/AI 확정 상태에서는 `user_included | ai_included | ai_not_applied`가 추가될 수 있다.
 - `parcels[].confidence_score`는 규칙 기반 score이며, `parcels[].ai_confidence_score`는 AI 추천 신뢰도다.
 - `summary.ai_report_text`는 휴리스틱 AI가 생성한 구역 추천 요약 문장이다.
 - `parcels[].selection_origin`은 최종 포함/제외의 출처(`rule | user | ai`)다.
@@ -645,24 +646,11 @@
 ```
 
 응답 200:
-```json
-{
-  "summary": {
-    "zone_id": "zone-uuid",
-    "zone_name": "한강 북측 분석구역",
-    "is_saved": true,
-    "algorithm_version": "zone-score-v3.0.0"
-  },
-  "coordinates": [
-    { "lat": 37.57, "lng": 126.96 },
-    { "lat": 37.571, "lng": 126.967 },
-    { "lat": 37.566, "lng": 126.972 }
-  ],
-  "parcels": []
-}
-```
+- 실제 응답 스키마는 `POST /map/zones/analyze`와 동일한 `MapZoneResponse`다.
+- 저장 성공 시 `summary.zone_id`가 채워지고 `summary.is_saved=true`가 된다.
+- `parcels`도 함께 반환되며, 저장 직전 사용자가 반영한 포함/제외 상태가 반영된다.
 
-### GET `/map/zones/{zone_id}/export?format=csv`
+### GET `/map/zones/{zone_id}/export`
 설명:
 - 저장된 구역 분석 결과를 CSV로 다운로드
 - 인증: 로그인 필수(HttpOnly 쿠키)
@@ -693,7 +681,8 @@ CSV 컬럼(주요):
 - 인증: 로그인 필수(HttpOnly 쿠키)
 
 쿼리:
-- `page`, `page_size`
+- `page` (기본 1)
+- `page_size` (기본 10, 최대 50)
 
 응답 필드:
 - `updated_at`: 최근 수정 시각
@@ -733,6 +722,7 @@ CSV 컬럼(주요):
 설명:
 - 저장된 구역 분석 결과에서 선택한 필지를 수동 포함/제외로 확정
 - AI 추천 적용 결과도 같은 엔드포인트로 기록
+- 이 과정에서 `zone_ai_feedbacks`가 함께 적재될 수 있다.
 - 인증: 로그인 필수(HttpOnly 쿠키)
 
 요청:
@@ -744,11 +734,6 @@ CSV 컬럼(주요):
   "reason": "AI 추천 검토 후 반영"
 }
 ```
-
-### GET `/map/zones/{zone_id}/export`
-설명:
-- 구역 분석 결과 CSV 다운로드
-- 인증: 로그인 필수(HttpOnly 쿠키)
 
 ### DELETE `/map/zones/{zone_id}`
 설명:
@@ -828,6 +813,10 @@ CSV 컬럼(주요):
 ```
 
 ## 6. 예정 API (v3.x, 미구현)
+비고:
+- 현재 브랜치에서는 별도 AI 전용 엔드포인트 대신 `PATCH /map/zones/{zone_id}/parcels/decision`에서 피드백 저장까지 처리한다.
+- 아래 항목은 전용 분리 API가 필요해질 때의 후보안이다.
+
 ### POST `/map/zones/ai-suggestions`
 설명:
 - 구역 분석 결과를 기반으로 경계 애매 필지에 대한 추천 포함/제외/검토 필요 결과를 생성
@@ -944,8 +933,9 @@ FastAPI 기본 `detail` 형식 사용:
 - 인증코드: `VERIFICATION_NOT_FOUND`, `VERIFICATION_EXPIRED`, `VERIFICATION_CODE_INVALID`, `ACCOUNT_NOT_FOUND`
 - 개별조회: `VWORLD_UNREACHABLE`, `VWORLD_HTTP_ERROR`, `VWORLD_DIRECT_AND_PROXY_FAILED`, `ROAD_FILE_NOT_FOUND`
 - 파일조회: `BULK_FILE_INVALID`, `BULK_ROW_LIMIT_EXCEEDED`, `BULK_JOB_NOT_FOUND`, `BULK_JOB_NOT_READY`
+- 파일조회/큐: `BULK_QUEUE_UNAVAILABLE`
 - 지도조회: `INVALID_COORDINATE`, `INVALID_PNU`, `MAP_ADDRESS_NOT_FOUND`, `PARCEL_NOT_FOUND`
-- 구역조회: `POSTGIS_REQUIRED`, `ZONE_TOO_FEW_POINTS`, `ZONE_TOO_MANY_POINTS`, `ZONE_AREA_TOO_LARGE`, `INVALID_ZONE_GEOMETRY`, `ZONE_ANALYSIS_NOT_FOUND`
+- 구역조회: `POSTGIS_REQUIRED`, `VWORLD_ZONE_FEATURE_FAILED`, `ZONE_TOO_FEW_POINTS`, `ZONE_TOO_MANY_POINTS`, `ZONE_TOO_MANY_FEATURE_PAGES`, `ZONE_TOO_MANY_INCLUDED_PARCELS`, `ZONE_AREA_TOO_LARGE`, `INVALID_ZONE_GEOMETRY`, `ZONE_ANALYSIS_NOT_FOUND`
 - 건축물대장: `BUILDING_LEDGER_UNREACHABLE`, `BUILDING_LEDGER_RATE_LIMITED`, `BUILDING_LEDGER_NOT_FOUND`
 - 구역 AI 추천(예정): `ZONE_AI_MODEL_UNAVAILABLE`, `ZONE_AI_FEEDBACK_INVALID`, `ZONE_AI_REPORT_FAILED`
 - 조회기록: `QUERY_LOG_NOT_FOUND`

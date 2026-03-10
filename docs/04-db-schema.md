@@ -1,4 +1,6 @@
-# 데이터 저장 구조 (v3 안정화)
+# 데이터 저장 구조 (2026-03-10 기준, v3.0 준비 중)
+
+> 최신 안정 릴리즈는 `v2.2.1`이며, 현재 스키마에는 `building_register_caches`와 `zone_ai_feedbacks`까지 반영돼 있다.
 
 ## 0. 저장 구조 방향
 - 현재 DB 구조는 단순 조회 결과 보관보다, `작업 재현성`과 `정확도 추적`을 확보하는 쪽으로 확장 중이다.
@@ -18,7 +20,7 @@
 마이그레이션 이력:
 - `20260302_0001`: `users`, `bulk_jobs`
 - `20260302_0002`: `query_logs`
-- `20260304_0003`: `parcels` + PostGIS 컬럼/인덱스(`geog`, `geom`)
+- `20260304_0003`: `parcels`
 - `20260305_0004`: `email_verifications` + `users` 약관 컬럼
 - `20260305_0005`: `users.phone_number`
 - `20260306_0006`: `zone_analyses`, `zone_analysis_parcels`
@@ -28,6 +30,9 @@
 - `20260310_0010`: `building_register_caches` 추가 지표(`건폐율`, `세대수`, `연면적`)
 - `20260310_0011`: `zone_analysis_parcels` 정확도 필드(`overlap_area_sqm`, `centroid_in`, `selected_by_rule`, `inclusion_mode`, `confidence_score`)
 - `20260310_0012`: `zone_analysis_parcels` AI/이상치/신뢰도 필드 + `zone_ai_feedbacks`
+
+비고:
+- PostGIS 관련 컬럼과 인덱스는 `parcels` 및 구역 분석 마이그레이션 흐름 안에서 함께 반영된다.
 
 ## 2. 테이블 상세
 ### 2.1 users
@@ -172,7 +177,7 @@
 비고:
 - `included`는 최종 반영 여부다.
 - `selected_by_rule`는 규칙/점수 기반 기본 선택 결과다.
-- `inclusion_mode`는 `rule_overlap | score_auto | boundary_candidate | excluded | user_excluded`를 사용한다.
+- `inclusion_mode`는 기본 분석 단계에서는 `rule_overlap | score_auto | boundary_candidate | excluded`를 사용하고, 저장 후 사용자/AI 반영 단계에서는 `user_excluded | user_included | ai_included | ai_not_applied`까지 확장될 수 있다.
 - `confidence_score`는 규칙 기반 점수다.
 - `ai_recommendation`은 휴리스틱 AI의 권고 상태(`included | uncertain | excluded`)다.
 - `selection_origin`은 최종 포함/제외 결정의 출처(`rule | user | ai`)다.
@@ -202,6 +207,7 @@
 - 건축물대장 API 응답의 정규화 캐시 테이블이다.
 - 구역 요약의 노후도/평균 용적률/과소필지 비율 계산 시 우선 사용한다.
 - `approval_year_sum`, `approval_year_count`는 구역 평균 사용승인년도 재계산용 내부 집계 필드다.
+- 구역 상세 응답의 `household_count`, `primary_purpose_name`, `floor_area_ratio`, `building_coverage_ratio`도 이 캐시와 결합해 구성된다.
 
 ### 2.9 zone_ai_feedbacks
 - `id` (String(36), PK)
@@ -223,6 +229,22 @@
 - 프로필 이미지: `apps/api/storage/profile_images`
 
 운영에서는 스토리지 볼륨 또는 외부 오브젝트 스토리지 연계를 권장한다.
+
+## 3.1 응답 조합 필드
+- 아래 값들은 별도 영속 테이블이 아니라 응답 생성 시 조합되는 경우가 있다.
+- 지도조회:
+  - `growth_rate`
+  - `estimated_total_price`
+  - `nearby_avg_price`
+- 구역조회:
+  - `geometry_assessed_total_price`
+  - `average_floor_area_ratio`
+  - `undersized_parcel_ratio`
+  - 필지 단위 `price_previous`, `growth_rate`, `aged_building_ratio`
+
+비고:
+- 즉, 모든 화면 필드가 1:1로 단일 테이블 컬럼에 저장되는 구조는 아니다.
+- 현재 구조는 `parcels + building_register_caches + zone_analysis_parcels + runtime calculation` 조합이 많다.
 
 ## 4. 데이터 보존/삭제 정책
 - `query_logs`: 사용자 조회기록 영구 저장(회원 탈퇴 시 함께 삭제)

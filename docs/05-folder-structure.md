@@ -1,19 +1,19 @@
-# 폴더 구조 (v3 안정화)
+# 폴더 구조 (2026-03-10 기준)
 
-## 1. 현재 구조
+> 현재 운영 기준 코드는 `apps/web`, `apps/api`, `apps/mobile`이며, 브랜치 상태는 `v3.0 준비 중`이다.
+
+## 1. 현재 기준 소스 트리
 ```text
-autoLV/
+Pilji-Lab/
   apps/
     api/
-      alembic.ini
       alembic/
-        env.py
         versions/
           20260302_0001_init_v1_schema.py
           20260302_0002_add_query_logs.py
-          20260304_0003_add_parcels_and_postgis.py
-          20260305_0004_add_email_verifications_and_terms.py
-          20260305_0005_add_phone_number_to_users.py
+          20260304_0003_add_parcels_table.py
+          20260305_0004_add_email_verification_and_terms.py
+          20260305_0005_add_user_phone_number.py
           20260306_0006_add_zone_analysis_tables.py
           20260306_0007_alter_parcels_geom_to_multipolygon.py
           20260307_0008_add_land_metadata_to_zone_parcels.py
@@ -36,20 +36,20 @@ autoLV/
           base.py
           session.py
         models/
-          user.py
-          email_verification.py
+          building_register_cache.py
           bulk_job.py
-          query_log.py
+          email_verification.py
           parcel.py
+          query_log.py
+          user.py
+          zone_ai_feedback.py
           zone_analysis.py
           zone_analysis_parcel.py
-          zone_ai_feedback.py
-          building_register_cache.py
         repositories/
-          user_repository.py
           bulk_job_repository.py
-          query_log_repository.py
           email_verification_repository.py
+          query_log_repository.py
+          user_repository.py
         schemas/
           auth.py
           bulk.py
@@ -58,14 +58,25 @@ autoLV/
           map.py
         services/
           auth_service.py
+          building_register_service.py
           email_service.py
-          land_code_service.py
+          ld_code_service.py
+          map_service.py
+          map_zone_service.py
           road_name_service.py
           terms_service.py
           vworld_service.py
-          map_service.py
-          building_register_service.py
-          map_zone_service.py
+          bulk/
+            column_mapper.py
+            constants.py
+            job_service.py
+            job_storage.py
+            normalizer.py
+            processor.py
+            queue.py
+            result_writer.py
+            table_reader.py
+            template_service.py
           map_zone/
             ai.py
             buildings.py
@@ -73,37 +84,41 @@ autoLV/
             geometry.py
             parcels.py
             summary.py
-          bulk/
-            constants.py
-            column_mapper.py
-            queue.py
-            normalizer.py
-            processor.py
-            result_writer.py
-            table_reader.py
-            template_service.py
-            job_service.py
-            job_storage.py
         main.py
       scripts/
-        run_migrations.py
-        run_bulk_worker.py
         reset_db_and_seed_admin.py
-      storage/                       # 런타임 생성
+        run_bulk_worker.py
+        run_migrations.py
+      storage/                        # 런타임 생성
       .env.example
-      requirements.txt
       README.md
+      alembic.ini
+      ld_codes.json
+      requirements.txt
+      TN_SPRD_RDNM.txt
     web/
       app/
+        (main)/
+          account-deletion/page.tsx
+          features/page.tsx
+          files/page.tsx
+          history/page.tsx
+          layout.tsx
+          map/page.tsx
+          mypage/page.tsx
+          privacy/page.tsx
+          search/page.tsx
         api/
           vworld-proxy/
             route.ts
         components/
           auth-modal.tsx
           auth-provider.tsx
+          brand-logo.tsx
           profile-action-modal.tsx
-          ui/
-            loading-indicator.tsx
+          files/
+            bulk-job-table.tsx
+            bulk-upload-panel.tsx
           map/
             map-floating-workbench.tsx
             map-result-drawer.tsx
@@ -114,9 +129,8 @@ autoLV/
             zone-library-panel.tsx
             zone-result-table.tsx
             zone-review-queue.tsx
-          files/
-            bulk-upload-panel.tsx
-            bulk-job-table.tsx
+          ui/
+            loading-indicator.tsx
         lib/
           address.ts
           api-client.ts
@@ -124,34 +138,40 @@ autoLV/
           history-api.ts
           map-api.ts
           map-view-utils.ts
-          zone-comparison.ts
           types.ts
-        (main)/
-          layout.tsx
-          search/page.tsx
-          map/page.tsx
-          files/page.tsx
-          history/page.tsx
-          features/page.tsx
-          mypage/page.tsx
-          privacy/page.tsx
-          account-deletion/page.tsx
+          zone-comparison.ts
+        brand-refresh.css
         globals.css
         layout.tsx
         page.tsx
       public/
-        ld_codes.json
+        brand/
+          piljilab-logo.png
         downloads/
+          autoLV-android-release.apk
           autoLV-android-release-v2.1.2.apk
+          autoLV-android-release-v2.2.0.apk
+        ld_codes.json
       .env.example
+      README.md
+      next.config.mjs
       package.json
+      package-lock.json
+      postcss.config.mjs
+      tailwind.config.ts
       tsconfig.json
     mobile/
       android/
       assets/
-      capacitor.config.ts
+      www/
+      .env.signing.example
+      capacitor.config.json
       package.json
+      package-lock.json
       README.md
+    worker/
+      jobs/                           # 현재 미사용 placeholder
+      tasks/                          # 현재 미사용 placeholder
   docs/
     01-requirements.md
     02-system-architecture.md
@@ -166,12 +186,17 @@ autoLV/
     11-ai-zone-accuracy-plan.md
     feature-spec.md
     architecture.svg
-    TN_SPRD_RDNM.txt
     autoLV icon.jpg
+    서비스 로고.png
+    TN_SPRD_RDNM.txt
+    assets/
+    samples/
   infra/
     docker/
       Dockerfile.api
       docker-compose.v1.yml
+    scripts/                         # 현재 비어 있음
+    sql/                             # 현재 비어 있음
     vworld-proxy/
       app/
       deploy/
@@ -180,72 +205,64 @@ autoLV/
       README.md
       requirements.txt
   backend/                           # legacy
-  frontend/                          # legacy
   crawler/                           # legacy
+  frontend/                          # legacy
+  packages/                          # 현재 비어 있음
   README.md
 ```
 
-## 2. 구조 설명
-- `apps/api`: FastAPI 서버/비즈니스 로직/DB 마이그레이션
-- `apps/api/scripts/run_bulk_worker.py`: Redis 기반 파일조회 전용 워커
-- `apps/web`: Next.js 웹 서비스(개별조회/지도조회/파일조회/조회기록/마이페이지)
-- `apps/web/app/components/map/*`: map-first workspace UI 조합 계층
-- `apps/mobile`: Capacitor 기반 Android 래퍼 앱
-- `infra/vworld-proxy`: VWorld 고정 IP 프록시 서비스
-- `docs`: 요구사항/아키텍처/API/배포/릴리스 노트
+## 2. 현재 구조 해석
+- `apps/api`가 현재 운영 API의 중심이다.
+- `apps/web`이 현재 운영 웹과 문서용 다운로드 자산을 함께 가진다.
+- `apps/mobile`은 `https://auto-lv.vercel.app`를 감싸는 Capacitor Android wrapper다.
+- `apps/worker`는 현재 실제 배포 경로가 아니라, 향후 별도 worker 앱 분리를 위한 placeholder 성격이다.
+- `infra/vworld-proxy`는 Railway에서 VWorld 직접 호출이 불안정할 때 쓰는 고정 IP 프록시다.
+- `backend`, `frontend`, `crawler`는 현행 운영 경로가 아니라 보관 중인 레거시 영역이다.
 
-## 3. 운영 시 주의 경로
+## 3. 운영 시 중요한 경로
 - 도로명 원본 데이터: `docs/TN_SPRD_RDNM.txt`
-- 법정동 코드 파일: `apps/web/public/ld_codes.json`
-- 파일 업로드 결과(런타임): `apps/api/storage/bulk`
-- 프로필 이미지(런타임): `apps/api/storage/profile_images`
-- 배포 APK 파일(최신): `apps/web/public/downloads/autoLV-android-release-v2.2.0.apk`
-- 고정 다운로드 경로: `apps/web/public/downloads/autoLV-android-release.apk`
+- API 대체 참조 경로: `apps/api/TN_SPRD_RDNM.txt`
+- 법정동 코드: `apps/web/public/ld_codes.json`
+- API 대체 참조 경로: `apps/api/ld_codes.json`
+- Bulk 업로드/결과 파일: `apps/api/storage/bulk`
+- 프로필 이미지 저장: `apps/api/storage/profile_images`
+- 웹 다운로드용 APK alias: `apps/web/public/downloads/autoLV-android-release.apk`
+- 버전 고정 APK 보관본: `apps/web/public/downloads/autoLV-android-release-v2.2.0.apk`
 
-## 4. 모듈 분리 원칙
-- API는 `api -> schemas -> services -> repositories -> models` 계층으로 분리
-- Bulk 처리 로직은 `services/bulk/*`로 세분화해 유지보수성 확보
-- bulk 실행 경로는 `job_service.py -> queue.py -> run_bulk_worker.py -> processor.py`로 분리해 API 프로세스와 작업 프로세스를 분리
-- Web은 페이지/컴포넌트/API 클라이언트(`lib/*`)를 분리
-- 지도조회는 `page.tsx`가 상태 오케스트레이션을 담당하고, 실제 UI는 `map-floating-workbench`, `map-result-drawer`, `map-workspace-toolbar`, `zone-review-queue`, `zone-comparison-card` 등으로 분리한다.
-- 조회기록은 페이지 단 UI와 API 호출 모듈을 분리
-- 저장 구역/조회기록 삭제처럼 목록성 기능은 페이지 UI와 API 클라이언트 분리 원칙 유지
-- 구역 사업성 분석은 `map_zone/*`와 `building_register_service.py`로 분리해 공간 계산과 건축물대장 연동 책임을 분리
-- 건축물대장 원본 응답은 `building_register_caches`에 캐시하고, 구역 응답은 실시간 집계만 수행
-- v3 정확도 고도화 기준으로 `map_zone/*`는 geometry / parcels / buildings / summary 도메인 단위로 유지
-- AI 1차 계층은 `map_zone/ai.py`에 격리해 추천/이상치/신뢰도 계산을 공간 계산 로직과 분리
-- AI 피드백은 `zone_ai_feedback.py` 모델과 `/map/zones/{zone_id}/parcels/decision` 경로로 분리
-- 향후 raw / normalized / serving 계층 도입 시 서비스/모델도 같은 단위로 분리
-- legacy 디렉터리(`backend`, `frontend`, `crawler`)는 각 폴더의 `README.md`로 현재 비운영 상태를 명시
+## 4. 현재 관찰되는 생성물과 로컬 산출물
+- 아래 항목은 소스 구조의 일부라기보다 로컬 실행/빌드 결과물이다.
+- `apps/api/.env`
+- `apps/api/autolv.db`
+- `apps/api/migrate_test.db`
+- `apps/api/uvicorn-*.log`
+- `apps/api/storage/*`
+- `apps/web/node_modules`
+- `apps/mobile/node_modules`
+- `apps/mobile/android/build/*`
 
-## 5. 현재 정리 우선순위
-- 기능 추가보다 먼저 정리해야 할 큰 파일/영역은 아래와 같다.
-  - `apps/api/app/services/map_service.py`
-  - `apps/api/app/services/map_zone_service.py`
-  - `apps/web/app/(main)/map/page.tsx`
-  - `apps/web/app/(main)/search/page.tsx`
-- 원칙:
-  - 동작을 깨지 않는 범위에서 책임을 더 잘게 분리
-  - UI 오버레이/워크플로우/도메인 계산을 섞지 않기
-  - 모바일 대응 로직을 컴포넌트 레벨에서 일관되게 유지
-## 6. 향후 확장 권장
-- 지도 폴리곤 분석 고도화 시 AI/보정 계층 추가 권장:
-  - `app/services/map_zone_snap_service.py`
-  - `app/services/map_zone_ml_service.py`
-  - `app/services/map_zone_feedback_service.py`
-- 운영 지표 도입 시 모듈 추가 권장:
-  - `app/services/metrics_service.py`
-  - `app/api/metrics.py`
-- 건축물대장 분석 확장 시 추가 권장:
-  - `app/services/building_register_frontage_service.py`
-  - `app/services/building_register_illegal_service.py`
-  - `app/models/building_frontage_cache.py`
-  - `app/models/illegal_building_registry.py`
-- AI 추천/설명 계층 확장 시 모듈 추가 권장:
-  - `app/services/llm_report_service.py`
-  - `app/models/zone_ai_suggestion.py`
-  - `app/models/zone_ai_model_registry.py`
-- raw / normalized / serving 계층 확장 시 모듈 추가 권장:
-  - `app/models/vworld_raw_payload.py`
-  - `app/models/building_register_raw_payload.py`
-  - `app/models/parcel_serving_snapshot.py`
+비고:
+- 문서 트리에는 이런 생성물을 핵심 구조로 취급하지 않는다.
+- 다만 현재 저장소 안에는 실제로 존재할 수 있으므로, 새 작업 시 소스와 생성물을 구분해서 다뤄야 한다.
+
+## 5. 모듈 분리 기준
+- API는 `api -> schemas -> services -> repositories -> models` 흐름을 유지한다.
+- Bulk 처리 로직은 `services/bulk/*`로 분리돼 API 요청 처리와 작업 실행 책임을 나눈다.
+- 구역 분석은 `services/map_zone/*`로 세분화돼 geometry, parcel composition, building summary, AI enrichment 책임을 나눈다.
+- Web은 `page.tsx`가 상태 오케스트레이션을 담당하고, 실제 UI는 `components/*`로 분리한다.
+- `/map`은 단일 페이지이지만 현재도 `toolbar`, `workbench`, `drawer`, `review queue`, `comparison`, `library` 단위까지는 분해돼 있다.
+
+## 6. 현재 큰 파일과 정리 우선순위
+- `apps/web/app/(main)/map/page.tsx`
+- `apps/api/app/services/map_zone_service.py`
+- `apps/api/app/services/map_service.py`
+- `apps/web/app/(main)/search/page.tsx`
+
+정리 원칙:
+- 동작을 먼저 보존하고 책임만 줄인다.
+- UI 상태 관리와 도메인 계산을 한 파일에 계속 섞지 않는다.
+- 모바일 대응 로직은 페이지 후반 보정이 아니라 컴포넌트 경계에서 같이 관리한다.
+
+## 7. 향후 확장 여지
+- `apps/worker`: Bulk/AI 추론 전용 프로세스를 별도 앱으로 분리할 때 사용할 수 있다.
+- `packages`: 공용 타입/유틸/디자인 토큰을 분리할 필요가 생기면 사용 가능하다.
+- `infra/scripts`, `infra/sql`: 운영 스크립트와 SQL 점검 스니펫을 별도 관리할 때 사용할 수 있다.

@@ -1,4 +1,6 @@
-# 시스템 아키텍처 (v3 안정화)
+# 시스템 아키텍처 (2026-03-10 기준, v3.0 준비 중)
+
+> 최신 안정 릴리즈는 `v2.2.1`이고, 현재 브랜치에는 건축물 지표와 휴리스틱 AI 보조 계층까지 반영돼 있다.
 
 ## 0. 제품 시스템 관점
 - 필지랩은 `조회 웹사이트`보다 `정확도 중심 필지·구역 작업 시스템`에 가깝다.
@@ -16,13 +18,15 @@
 - Backend: FastAPI (Railway)
 - Database: PostgreSQL (Neon/Railway), 로컬 SQLite
 - Spatial: PostGIS (`geog`, `geom`)
-- Cache: Redis (좌표->PNU 캐시, 지도 조회 보조)
+- Cache/Queue: Redis (좌표->PNU 캐시, 토지 메타데이터 캐시, bulk queue)
 - AI Assist:
   - 현재: 휴리스틱 추천 엔진 + 이상치 탐지 + 추천 피드백 저장
   - 예정: 경계 보정 알고리즘 + 경계 필지 추천 ML + 설명 LLM
 - External API:
   - VWorld (주소/좌표/공시지가/토지특성)
   - Kakao Maps JS SDK (지도 렌더링)
+- Web Edge Helper:
+  - Next Route Handler 기반 same-origin VWorld proxy (`apps/web/app/api/vworld-proxy/route.ts`)
 - Network Fallback: AWS EC2 고정 IP VWorld 프록시 (`infra/vworld-proxy`)
 - Reference Data:
   - 법정동 코드: `apps/web/public/ld_codes.json`
@@ -40,6 +44,7 @@
   - `/privacy`, `/account-deletion` (운영/스토어 정책 페이지)
 - 인증 상태에 따라 상단 네비게이션 노출 범위가 달라진다.
 - `/map`은 일반 콘텐츠 페이지가 아니라 map-first workspace로 동작하며, 검색/툴바/결과는 오버레이 UI로 노출된다.
+- Web에는 `/api/vworld-proxy` 라우트가 있으며, same-origin 프록시가 필요할 때만 보조적으로 사용한다.
 
 ### 2.2 API 계층
 - 인증/계정: `/api/v1/auth/*`
@@ -57,6 +62,7 @@
 - `parcels`: 지도 조회 캐시 + 공간 질의 기초 데이터
 - `zone_analyses`, `zone_analysis_parcels`: 저장된 구역 분석 결과
 - `building_register_caches`: 건축물대장 정규화 캐시
+- `zone_ai_feedbacks`: AI 추천 대비 사용자 최종 결정 이력
 - `raw / normalized / serving` 3계층은 현재 일부만 반영되었고, v3 단계에서 확장 예정
 - 파일 스토리지
   - 업로드/결과: `apps/api/storage/bulk`
@@ -85,6 +91,7 @@
    - 유니크 주소 키 병렬 조회
    - 5행 단위 진행률 업데이트
    - 결과 파일 생성
+   - Redis queue 사용 시 API와 worker 분리 실행
 4. `/bulk/jobs` 폴링으로 상태/이력 확인
 5. `/bulk/jobs/{id}/download`로 완료 작업 결과 다운로드
 
@@ -128,6 +135,7 @@
 5. 프론트에서 요약 카드 + 필지 목록 + 선택 제외 + 저장 구역 사이드바 + CSV 다운로드 제공
 6. 결과 화면에서는 사실값/계산값/추정값 구분 안내를 함께 제공한다.
 7. 리뷰 워크플로우는 `확정 포함 / 경계 후보 / 제외 / 이상치`를 작업 큐처럼 검토할 수 있는 방향으로 발전시킨다.
+8. 현재 레포에는 `apps/worker` placeholder가 있으나, 실제 bulk worker 런타임은 아직 `apps/api/scripts/run_bulk_worker.py`가 담당한다.
 
 ### 3.6 구역 정확도 향상 보조 계층 (현재)
 1. 사용자가 폴리곤을 그리면 기본 PostGIS 분석이 먼저 실행된다.

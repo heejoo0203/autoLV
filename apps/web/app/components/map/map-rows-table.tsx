@@ -6,7 +6,8 @@ import type { LandResultRow } from "@/app/lib/types";
 function formatBaseDate(value: string | null | undefined): string {
   if (!value) return "-";
   const trimmed = value.trim();
-  const match = trimmed.match(/^0?(\d{1,2})월\s*0?(\d{1,2})일$/);
+  const normalized = trimmed.replace(/\s+/g, "");
+  const match = normalized.match(/^0?(\d{1,2})월0?(\d{1,2})일$/) ?? normalized.match(/^0?(\d{1,2})[./-]0?(\d{1,2})$/);
   if (match) {
     return `${Number(match[1])}/${Number(match[2])}`;
   }
@@ -39,13 +40,7 @@ export function MapRowsTable({
     );
   }
   return (
-    <table className="data-table map-yearly-table mobile-card-table">
-      <colgroup>
-        <col style={{ width: "20%" }} />
-        <col style={{ width: "34%" }} />
-        <col style={{ width: "16%" }} />
-        <col style={{ width: "30%" }} />
-      </colgroup>
+    <table className="data-table map-yearly-table">
       <thead>
         <tr>
           <th>가격기준년도</th>

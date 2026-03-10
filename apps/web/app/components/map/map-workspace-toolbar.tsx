@@ -6,6 +6,8 @@ export function MapWorkspaceToolbar({
   onMoveToCurrentLocation,
   onResetView,
   onToggleFullscreen,
+  detailPanelOpen,
+  onToggleDetailPanel,
   isFullscreen,
   viewMode,
   zoneLibraryOpen,
@@ -17,6 +19,8 @@ export function MapWorkspaceToolbar({
   onMoveToCurrentLocation: () => void;
   onResetView: () => void;
   onToggleFullscreen: () => void;
+  detailPanelOpen: boolean;
+  onToggleDetailPanel: () => void;
   isFullscreen: boolean;
   viewMode: "basic" | "zone";
   zoneLibraryOpen: boolean;
@@ -47,8 +51,13 @@ export function MapWorkspaceToolbar({
             </button>
           </>
         ) : null}
-        <button type="button" className="lab-float-btn" onClick={onToggleFullscreen}>
+        <button type="button" className="lab-float-btn map-toolbar-btn-fixed" onClick={onToggleFullscreen}>
           {isFullscreen ? "전체화면 종료" : "전체화면"}
+        </button>
+      </div>
+      <div className="map-toolbar-group single-action">
+        <button type="button" className="lab-float-btn map-toolbar-btn-fixed" onClick={onToggleDetailPanel}>
+          {detailPanelOpen ? "결과 닫기" : "결과 보기"}
         </button>
       </div>
     </div>

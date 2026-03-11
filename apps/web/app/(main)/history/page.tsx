@@ -35,6 +35,7 @@ export default function HistoryPage() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
+  const [totalCount, setTotalCount] = useState(0);
 
   const [searchTypeFilter, setSearchTypeFilter] = useState<SearchTypeFilter>("all");
   const [sidoFilter, setSidoFilter] = useState("");
@@ -131,6 +132,7 @@ export default function HistoryPage() {
         });
         if (ignore) return;
         setRecords(payload.items);
+        setTotalCount(payload.total_count);
         setSelectedLogIds((prev) => {
           const visibleIds = new Set(payload.items.map((item) => item.id));
           return new Set(Array.from(prev).filter((id) => visibleIds.has(id)));
@@ -139,6 +141,7 @@ export default function HistoryPage() {
       } catch (error) {
         if (ignore) return;
         setRecords([]);
+        setTotalCount(0);
         setMessage(error instanceof Error ? error.message : "조회기록을 불러오지 못했습니다.");
       } finally {
         if (!ignore) setLoading(false);
@@ -185,6 +188,7 @@ export default function HistoryPage() {
         sortOrder: appliedFilter.sortOrder,
       });
       setRecords(payload.items);
+      setTotalCount(payload.total_count);
       setSelectedLogIds((prev) => {
         const visibleIds = new Set(payload.items.map((item) => item.id));
         return new Set(Array.from(prev).filter((id) => visibleIds.has(id)));
@@ -192,6 +196,7 @@ export default function HistoryPage() {
       setMessage("");
     } catch (error) {
       setRecords([]);
+      setTotalCount(0);
       setSelectedLogIds(new Set());
       setMessage(error instanceof Error ? error.message : "조회기록을 불러오지 못했습니다.");
     } finally {
@@ -253,7 +258,11 @@ export default function HistoryPage() {
         <div className="lab-hero-panel-grid">
           <article className="lab-mini-card">
             <span>누적 기록</span>
-            <strong>{records.length}</strong>
+            <strong>{totalCount.toLocaleString("ko-KR")}</strong>
+          </article>
+          <article className="lab-mini-card">
+            <span>현재 결과</span>
+            <strong>{records.length.toLocaleString("ko-KR")}</strong>
           </article>
           <article className="lab-mini-card">
             <span>현재 필터</span>

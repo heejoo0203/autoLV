@@ -31,6 +31,7 @@ export default function MyPage() {
   const [terms, setTerms] = useState<UserTerms | null>(null);
   const [termsLoading, setTermsLoading] = useState(false);
   const [localMessage, setLocalMessage] = useState("");
+  const [activeAction, setActiveAction] = useState<null | "profile" | "password" | "withdrawal">(null);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -169,11 +170,16 @@ export default function MyPage() {
             disabled={authLoading}
             onClick={async () => {
               setLocalMessage("");
-              await updateProfile({ full_name: fullName, phone_number: phoneNumber, profile_image: profileImage });
-              setProfileImage(null);
+              setActiveAction("profile");
+              try {
+                await updateProfile({ full_name: fullName, phone_number: phoneNumber, profile_image: profileImage });
+                setProfileImage(null);
+              } finally {
+                setActiveAction(null);
+              }
             }}
           >
-            {authLoading ? "저장 중..." : "저장"}
+            {authLoading && activeAction === "profile" ? "저장 중..." : "저장"}
           </button>
         </article>
 
@@ -224,17 +230,22 @@ export default function MyPage() {
             disabled={authLoading}
             onClick={async () => {
               setLocalMessage("");
-              await changePassword({
-                current_password: currentPassword,
-                new_password: newPassword,
-                confirm_new_password: confirmNewPassword,
-              });
-              setCurrentPassword("");
-              setNewPassword("");
-              setConfirmNewPassword("");
+              setActiveAction("password");
+              try {
+                await changePassword({
+                  current_password: currentPassword,
+                  new_password: newPassword,
+                  confirm_new_password: confirmNewPassword,
+                });
+                setCurrentPassword("");
+                setNewPassword("");
+                setConfirmNewPassword("");
+              } finally {
+                setActiveAction(null);
+              }
             }}
           >
-            {authLoading ? "변경 중..." : "비밀번호 변경"}
+            {authLoading && activeAction === "password" ? "변경 중..." : "비밀번호 변경"}
           </button>
         </article>
 
@@ -287,10 +298,15 @@ export default function MyPage() {
             disabled={authLoading}
             onClick={async () => {
               setLocalMessage("");
-              await deleteAccount(withdrawText);
+              setActiveAction("withdrawal");
+              try {
+                await deleteAccount(withdrawText);
+              } finally {
+                setActiveAction(null);
+              }
             }}
           >
-            {authLoading ? "탈퇴 처리 중..." : "회원 탈퇴"}
+            {authLoading && activeAction === "withdrawal" ? "탈퇴 처리 중..." : "회원 탈퇴"}
           </button>
         </article>
       </section>

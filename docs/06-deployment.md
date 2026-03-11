@@ -89,6 +89,7 @@ python scripts/run_migrations.py
 
 ### 5.2 Railway API
 - Root Directory: `apps/api`
+- Dockerfile: `apps/api/Dockerfile`
 - Health Check: `/health`
 - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 

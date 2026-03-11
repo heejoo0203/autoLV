@@ -97,6 +97,10 @@ export default function FilesPage() {
     return () => window.clearInterval(timer);
   }, [hasRunningJob, isLoggedIn, loadJobs]);
 
+  useEffect(() => {
+    setSelectedJobIds(new Set());
+  }, [page, statusFilter]);
+
   const handleUpload = async () => {
     if (!selectedFile) {
       setMessage("업로드할 파일을 먼저 선택해 주세요.");
@@ -173,7 +177,7 @@ export default function FilesPage() {
       setSelectedJobIds(new Set());
       return;
     }
-    setSelectedJobIds(new Set(jobs.map((job) => job.job_id)));
+    setSelectedJobIds(new Set(filteredJobs.map((job) => job.job_id)));
   };
 
   const handleDeleteSelected = async () => {

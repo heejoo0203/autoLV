@@ -90,7 +90,7 @@ export function MapResultDrawer({
 }) {
   const [tableExpanded, setTableExpanded] = useState(false);
   const hasContent = viewMode === "basic" ? Boolean(result) : Boolean(zoneResult);
-  const drawerHandleLabel = open ? "패널 닫기" : hasContent ? "결과 보기" : "안내 보기";
+  const drawerHandleLabel = open ? "패널 닫기" : "결과 보기";
 
   return (
     <aside className={`map-result-drawer ${open ? "open" : ""} ${viewMode === "zone" ? "zone-mode" : "basic-mode"}`}>

@@ -149,12 +149,11 @@ export function ZoneReviewQueue({
   onExcludeParcel: (pnu: string) => void;
   onToggleDeferParcel: (pnu: string) => void;
 }) {
-  if (!zoneResult) return null;
-
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
   const [showAllItems, setShowAllItems] = useState(false);
+  const parcels = useMemo(() => zoneResult?.parcels ?? [], [zoneResult]);
 
-  const reviewItems = useMemo(() => buildReviewItems(zoneResult.parcels, deferredPnuSet), [zoneResult.parcels, deferredPnuSet]);
+  const reviewItems = useMemo(() => buildReviewItems(parcels, deferredPnuSet), [deferredPnuSet, parcels]);
   const reviewCounts = useMemo(
     () => ({
       all: reviewItems.length,
@@ -170,10 +169,12 @@ export function ZoneReviewQueue({
     reviewFilter === "all" ? reviewItems : reviewItems.filter((item) => item.bucket === reviewFilter);
   const visibleItems = showAllItems ? filteredItems : filteredItems.slice(0, 6);
   const activeParcel =
-    zoneResult.parcels.find((item) => item.pnu === activePnu) ??
+    parcels.find((item) => item.pnu === activePnu) ??
     filteredItems.at(0)?.parcel ??
     reviewItems.at(0)?.parcel ??
     null;
+
+  if (!zoneResult) return null;
 
   return (
     <section className="map-result-section zone-review-section">

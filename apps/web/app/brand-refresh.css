@@ -2140,6 +2140,16 @@ body::before {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.search-metric-grid .lab-metric-card strong,
+.search-land-details-grid .lab-metric-card strong {
+  font-size: clamp(17px, 1.55vw, 22px);
+  line-height: 1.28;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-variant-numeric: tabular-nums;
+}
+
 .lab-metric-card,
 .metric-card {
   padding: 18px;
@@ -3019,10 +3029,6 @@ body::before {
   box-shadow: 0 12px 28px rgba(16, 35, 63, 0.12);
 }
 
-.map-toolbar-group.single-action {
-  display: grid;
-}
-
 .map-toolbar-btn-fixed {
   min-width: 118px;
 }
@@ -3097,14 +3103,14 @@ body::before {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
-  width: min(468px, calc(100vw - 470px));
+  width: min(540px, calc(100vw - 430px));
   transform: translateX(calc(100% - 156px));
   transition: transform 0.24s ease;
   pointer-events: none;
 }
 
 .map-result-drawer.zone-mode {
-  width: min(560px, calc(100vw - 420px));
+  width: min(580px, calc(100vw - 400px));
 }
 
 .map-result-drawer.open {
@@ -3123,7 +3129,7 @@ body::before {
   min-height: 52px;
   min-width: 136px;
   padding: 0 20px;
-  margin-top: 96px;
+  margin-top: 164px;
   border: 1px solid rgba(255, 255, 255, 0.84);
   border-radius: 18px 0 0 18px;
   background: rgba(255, 255, 255, 0.92);
@@ -3260,53 +3266,6 @@ body::before {
   display: grid;
   gap: 12px;
   margin-top: 16px;
-}
-
-.map-result-drawer .map-yearly-table {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.map-result-drawer .map-yearly-table thead {
-  display: none;
-}
-
-.map-result-drawer .map-yearly-table tbody {
-  display: grid;
-  gap: 10px;
-}
-
-.map-result-drawer .map-yearly-table tbody tr {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(18, 42, 72, 0.08);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--lab-shadow-sm);
-}
-
-.map-result-drawer .map-yearly-table tbody td {
-  display: grid;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  color: var(--lab-primary-strong);
-  text-align: left;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
-}
-
-.map-result-drawer .map-yearly-table tbody td::before {
-  content: attr(data-label);
-  color: var(--lab-ink-soft);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
 }
 
 .zone-review-section,
@@ -3737,7 +3696,7 @@ body::before {
 
   .map-result-drawer.zone-mode,
   .map-result-drawer {
-    width: min(460px, calc(100vw - 420px));
+    width: min(520px, calc(100vw - 360px));
     transform: translateX(calc(100% - 156px));
   }
 }

@@ -44,6 +44,17 @@ const QUICK_EXAMPLES: QuickExample[] = [
   { label: "판교", tab: "도로명", sido: "경기도", sigungu: "성남시 분당구", roadInitial: "ㅍ", roadName: "판교역로", buildingMainNo: "166" },
 ] as const;
 
+function formatBaseDate(value: string | null | undefined): string {
+  if (!value) return "-";
+  const trimmed = value.trim();
+  const normalized = trimmed.replace(/\s+/g, "");
+  const match = normalized.match(/^0?(\d{1,2})월0?(\d{1,2})일$/) ?? normalized.match(/^0?(\d{1,2})[./-]0?(\d{1,2})$/);
+  if (match) {
+    return `${Number(match[1])}/${Number(match[2])}`;
+  }
+  return trimmed;
+}
+
 export default function SearchPage() {
   return (
     <Suspense fallback={<SearchPageFallback />}>
@@ -803,7 +814,7 @@ function SearchPageClient() {
                       <tr key={`${row.토지소재지}-${idx}`}>
                         <td data-label="가격기준년도">{row.기준년도}</td>
                         <td data-label="개별공시지가">{row.개별공시지가}</td>
-                        <td data-label="기준일자">{row.기준일자}</td>
+                        <td data-label="기준일자">{formatBaseDate(row.기준일자)}</td>
                         <td data-label="공시일자">{row.공시일자}</td>
                       </tr>
                     ))}

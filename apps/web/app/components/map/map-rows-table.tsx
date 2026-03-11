@@ -41,6 +41,12 @@ export function MapRowsTable({
   }
   return (
     <table className="data-table map-yearly-table">
+      <colgroup>
+        <col style={{ width: "18%" }} />
+        <col style={{ width: "38%" }} />
+        <col style={{ width: "12%" }} />
+        <col style={{ width: "32%" }} />
+      </colgroup>
       <thead>
         <tr>
           <th>가격기준년도</th>

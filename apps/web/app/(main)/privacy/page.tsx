@@ -4,7 +4,7 @@ export default function PrivacyPolicyPage() {
       <section className="panel">
         <h2>개인정보처리방침</h2>
         <p className="hint">
-          필지랩(이하 "서비스")은 개인정보보호법 등 관련 법령을 준수하며, 이용자의 개인정보를 안전하게 보호하기 위해
+          필지랩(이하 &quot;서비스&quot;)은 개인정보보호법 등 관련 법령을 준수하며, 이용자의 개인정보를 안전하게 보호하기 위해
           본 방침을 공개합니다.
         </p>
         <p className="hint">시행일: 2026-03-05</p>

@@ -348,7 +348,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loadTerms,
       loadPublicTerms,
     }),
-    [user, loading, authLoading, authOpen, authMode, authMessage, authMessageTone, expectedWithdrawalText]
+    [
+      user,
+      loading,
+      authLoading,
+      authOpen,
+      authMode,
+      authMessage,
+      authMessageTone,
+      openAuth,
+      closeAuth,
+      setAuthMode,
+      login,
+      register,
+      logout,
+      updateProfile,
+      changePassword,
+      deleteAccount,
+      expectedWithdrawalText,
+      setAuthMessage,
+      refreshMe,
+      sendRecoveryCode,
+      findIdByProfile,
+      checkEmailAvailability,
+      resetPasswordByCode,
+      loadTerms,
+      loadPublicTerms,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

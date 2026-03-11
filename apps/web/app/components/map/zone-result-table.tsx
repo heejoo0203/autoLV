@@ -92,7 +92,7 @@ export function ZoneResultTable({
   const [expandedPnuSet, setExpandedPnuSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<"all" | "included" | "boundary" | "ai" | "anomaly" | "excluded">("all");
   const previewSummary = zoneResult?.summary ?? null;
-  const parcels = zoneResult?.parcels ?? [];
+  const parcels = useMemo(() => zoneResult?.parcels ?? [], [zoneResult]);
   const overlapPercent = Math.round(((previewSummary?.overlap_threshold ?? 0.9) || 0.9) * 100);
   const visibleParcels = useMemo(() => {
     if (filterMode === "included") return parcels.filter((row) => row.included);

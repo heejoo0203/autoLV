@@ -1380,8 +1380,6 @@ function MapPageClient() {
             onMoveToCurrentLocation={moveToCurrentLocation}
             onResetView={resetMapView}
             onToggleFullscreen={() => void toggleFullscreen()}
-            detailPanelOpen={detailPanelOpen}
-            onToggleDetailPanel={() => setDetailPanelOpen((prev) => !prev)}
             isFullscreen={isFullscreen}
             viewMode={viewMode}
             zoneLibraryOpen={zoneLibraryOpen}

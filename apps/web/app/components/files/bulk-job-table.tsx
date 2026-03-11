@@ -50,6 +50,29 @@ export function BulkJobTable(props: Props) {
           </button>
         </div>
       </div>
+      {props.jobs.length > 0 ? (
+        <div className="table-mobile-controls" aria-label="모바일 선택 도구">
+          <p className="table-toolbar-meta">카드 목록에서는 여기서 현재 결과 전체 선택을 제어합니다.</p>
+          <div className="bulk-head-actions">
+            <button
+              type="button"
+              className="lab-btn lab-btn-tertiary compact"
+              onClick={() => props.onToggleSelectAll(true)}
+              disabled={allSelected || props.loading || props.deleting}
+            >
+              현재 결과 전체 선택
+            </button>
+            <button
+              type="button"
+              className="lab-btn lab-btn-tertiary compact"
+              onClick={() => props.onToggleSelectAll(false)}
+              disabled={!anySelected || props.loading || props.deleting}
+            >
+              선택 해제
+            </button>
+          </div>
+        </div>
+      ) : null}
       {props.jobs.length === 0 ? (
         <div className="empty-box">{props.hasAnyJobs ? "선택한 상태에 해당하는 작업이 없습니다." : "아직 파일 작업 이력이 없습니다."}</div>
       ) : (

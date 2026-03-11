@@ -144,9 +144,12 @@ export function BulkUploadPanel(props: Props) {
             {props.uploading ? <LoadingIndicator label="조회 중" kind="dots" /> : "조회"}
           </button>
           {props.selectedFileName ? (
-            <div className="hint">
-              선택 파일: {props.selectedFileName} ({formatFileSize(props.selectedFileSize)})
-              {" "}
+            <div className="bulk-selected-file">
+              <div className="bulk-selected-file-meta">
+                <span>선택 파일</span>
+                <strong>{props.selectedFileName}</strong>
+                <p>{formatFileSize(props.selectedFileSize)} · 업로드 준비 완료</p>
+              </div>
               <button type="button" className="lab-btn lab-btn-tertiary compact" onClick={() => props.onSelectFile(null)}>
                 선택 해제
               </button>
@@ -155,7 +158,7 @@ export function BulkUploadPanel(props: Props) {
         </div>
       </div>
 
-      <p className="hint">{props.message}</p>
+      <p className="hint bulk-upload-message">{props.message}</p>
     </section>
   );
 }

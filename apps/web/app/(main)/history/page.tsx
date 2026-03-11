@@ -155,6 +155,8 @@ export default function HistoryPage() {
 
   const allSelected = records.length > 0 && records.every((item) => selectedLogIds.has(item.id));
   const selectedCount = selectedLogIds.size;
+  const activeSortBy = sortState.sortBy ?? appliedFilter.sortBy;
+  const activeSortOrder = sortState.sortOrder ?? appliedFilter.sortOrder;
   const activeFilterSummary = useMemo(() => {
     const items = [`유형 ${appliedFilter.searchType === "all" ? "전체" : toSearchTypeLabel(appliedFilter.searchType)}`];
     if (appliedFilter.sido) {
@@ -393,6 +395,46 @@ export default function HistoryPage() {
               {item}
             </span>
           ))}
+        </div>
+        <div className="history-list-controls" aria-label="모바일 기록 정렬 도구">
+          <label className="field-label">
+            정렬 기준
+            <select
+              className="mini-select"
+              value={activeSortBy}
+              onChange={(event) =>
+                applySortState({
+                  sortBy: event.target.value as SortBy,
+                  sortOrder: activeSortBy === event.target.value ? activeSortOrder : "desc",
+                })
+              }
+            >
+              <option value="created_at">일시</option>
+              <option value="search_type">유형</option>
+              <option value="address_summary">주소</option>
+              <option value="result_count">결과건수</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="lab-btn lab-btn-tertiary compact history-sort-inline"
+            onClick={() =>
+              applySortState({
+                sortBy: activeSortBy,
+                sortOrder: activeSortOrder === "desc" ? "asc" : "desc",
+              })
+            }
+          >
+            {activeSortOrder === "desc" ? "내림차순" : "오름차순"}
+          </button>
+          <button
+            type="button"
+            className="lab-btn lab-btn-tertiary compact"
+            onClick={() => handleToggleSelectAll(!allSelected)}
+            disabled={records.length === 0 || deleting}
+          >
+            {allSelected ? "전체 선택 해제" : "현재 결과 전체 선택"}
+          </button>
         </div>
 
         <div className="bulk-table-head">

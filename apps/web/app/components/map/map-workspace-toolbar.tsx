@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export function MapWorkspaceToolbar({
   showDistrictOverlay,
   onToggleDistrictOverlay,
@@ -7,10 +9,7 @@ export function MapWorkspaceToolbar({
   onResetView,
   onToggleFullscreen,
   isFullscreen,
-  viewMode,
-  zoneLibraryOpen,
-  onToggleZoneLibrary,
-  onClearZonePoints,
+  compactMode,
 }: {
   showDistrictOverlay: boolean;
   onToggleDistrictOverlay: () => void;
@@ -18,11 +17,63 @@ export function MapWorkspaceToolbar({
   onResetView: () => void;
   onToggleFullscreen: () => void;
   isFullscreen: boolean;
-  viewMode: "basic" | "zone";
-  zoneLibraryOpen: boolean;
-  onToggleZoneLibrary: () => void;
-  onClearZonePoints: () => void;
+  compactMode: boolean;
 }) {
+  const [compactOpen, setCompactOpen] = useState(false);
+  const actions = [
+    {
+      label: showDistrictOverlay ? "지적도 끄기" : "지적도 켜기",
+      className: `lab-float-btn ${showDistrictOverlay ? "active" : ""}`,
+      onClick: onToggleDistrictOverlay,
+    },
+    {
+      label: "현재 위치",
+      className: "lab-float-btn",
+      onClick: onMoveToCurrentLocation,
+    },
+    {
+      label: "시야 초기화",
+      className: "lab-float-btn",
+      onClick: onResetView,
+    },
+    {
+      label: isFullscreen ? "전체화면 종료" : "전체화면",
+      className: "lab-float-btn map-toolbar-btn-fixed",
+      onClick: onToggleFullscreen,
+    },
+  ];
+
+  if (compactMode) {
+    return (
+      <div className={`map-toolbar-cluster compact ${compactOpen ? "open" : ""}`}>
+        {compactOpen ? (
+          <div className="map-toolbar-popover">
+            {actions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                className={action.className}
+                onClick={() => {
+                  action.onClick();
+                  setCompactOpen(false);
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className={`lab-float-btn map-toolbar-toggle ${compactOpen ? "active" : ""}`}
+          onClick={() => setCompactOpen((prev) => !prev)}
+        >
+          {compactOpen ? "도구 닫기" : "도구"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="map-toolbar-cluster">
       <div className="map-toolbar-group">
@@ -35,18 +86,6 @@ export function MapWorkspaceToolbar({
         <button type="button" className="lab-float-btn" onClick={onResetView}>
           시야 초기화
         </button>
-      </div>
-      <div className="map-toolbar-group">
-        {viewMode === "zone" ? (
-          <>
-            <button type="button" className={`lab-float-btn ${zoneLibraryOpen ? "active" : ""}`} onClick={onToggleZoneLibrary}>
-              저장 구역
-            </button>
-            <button type="button" className="lab-float-btn danger" onClick={onClearZonePoints}>
-              구역 초기화
-            </button>
-          </>
-        ) : null}
         <button type="button" className="lab-float-btn map-toolbar-btn-fixed" onClick={onToggleFullscreen}>
           {isFullscreen ? "전체화면 종료" : "전체화면"}
         </button>

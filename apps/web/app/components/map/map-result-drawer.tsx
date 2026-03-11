@@ -203,22 +203,6 @@ export function MapResultDrawer({
                 </button>
               </div>
               <div className="map-result-action-row zone">
-                <button
-                  type="button"
-                  className="lab-btn lab-btn-secondary compact"
-                  onClick={onIncludeSelected}
-                  disabled={selectedPnuSet.size === 0 || zoneExcludeLoading}
-                >
-                  {zoneExcludeLoading ? "처리 중..." : `선택 포함 (${selectedPnuSet.size})`}
-                </button>
-                <button
-                  type="button"
-                  className="lab-btn lab-btn-danger compact"
-                  onClick={onExcludeSelected}
-                  disabled={selectedPnuSet.size === 0 || zoneExcludeLoading}
-                >
-                  {zoneExcludeLoading ? "처리 중..." : `선택 삭제 (${selectedPnuSet.size})`}
-                </button>
                 {!zoneResult.summary.is_saved ? (
                   <button type="button" className="lab-btn lab-btn-primary compact" onClick={onSaveZone} disabled={zoneSaveLoading}>
                     {zoneSaveLoading ? "저장 중..." : "구역 저장"}

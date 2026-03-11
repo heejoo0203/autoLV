@@ -14,6 +14,7 @@ export type MapQuickSearchOption = {
 export function MapFloatingWorkbench({
   collapsed,
   onToggleCollapse,
+  compactMode,
   viewMode,
   onModeChange,
   isLoggedIn,
@@ -40,6 +41,7 @@ export function MapFloatingWorkbench({
 }: {
   collapsed: boolean;
   onToggleCollapse: () => void;
+  compactMode: boolean;
   viewMode: "basic" | "zone";
   onModeChange: (mode: "basic" | "zone") => void;
   isLoggedIn: boolean;
@@ -75,7 +77,7 @@ export function MapFloatingWorkbench({
           <strong>{isBasic ? "필지 조회" : "구역 분석"}</strong>
         </div>
         <button type="button" className="map-workspace-panel-toggle" onClick={onToggleCollapse}>
-          {collapsed ? "열기" : "접기"}
+          {collapsed ? "패널 열기" : "패널 접기"}
         </button>
       </div>
 
@@ -118,31 +120,42 @@ export function MapFloatingWorkbench({
                 </button>
               </form>
 
-              <div className="map-search-assist-card">
-                <div className="map-search-assist-head">
-                  <span>검색 인식</span>
-                  <strong>{searchIntentLabel}</strong>
+              {compactMode ? (
+                <div className="map-search-mini-state">
+                  <span>{result ? "현재 선택" : "조회 힌트"}</span>
+                  <strong>
+                    {result
+                      ? result.jibun_address || result.address_summary || result.road_address || "필지 조회 결과"
+                      : "주소, 지번, PNU를 입력하거나 지도를 눌러 조회하세요."}
+                  </strong>
                 </div>
-                <div className="map-search-suggestion-list">
-                  {quickSearchOptions.map((option) => (
-                    <button
-                      key={option.label}
-                      type="button"
-                      className="map-search-suggestion-item"
-                      onClick={() => onQuickSearch(option.query)}
-                    >
-                      <strong>{option.label}</strong>
-                      <span>{option.caption}</span>
-                    </button>
-                  ))}
-                </div>
-                {result ? (
-                  <div className="map-search-current-result">
-                    <span>현재 선택</span>
-                    <strong>{result.jibun_address || result.address_summary || result.road_address || "필지 조회 결과"}</strong>
+              ) : (
+                <div className="map-search-assist-card">
+                  <div className="map-search-assist-head">
+                    <span>검색 인식</span>
+                    <strong>{searchIntentLabel}</strong>
                   </div>
-                ) : null}
-              </div>
+                  <div className="map-search-suggestion-list">
+                    {quickSearchOptions.map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        className="map-search-suggestion-item"
+                        onClick={() => onQuickSearch(option.query)}
+                      >
+                        <strong>{option.label}</strong>
+                        <span>{option.caption}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {result ? (
+                    <div className="map-search-current-result">
+                      <span>현재 선택</span>
+                      <strong>{result.jibun_address || result.address_summary || result.road_address || "필지 조회 결과"}</strong>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </>
           ) : isLoggedIn ? (
             <>
@@ -193,10 +206,10 @@ export function MapFloatingWorkbench({
                 </div>
                 <div className="map-zone-primary-actions">
                   <button type="button" className="lab-btn lab-btn-primary" onClick={onZoneAnalyze} disabled={zoneLoading || zonePointCount < 3}>
-                    {zoneLoading ? <LoadingIndicator label="분석 중" kind="dots" /> : "구역 분석"}
+                    {zoneLoading ? <LoadingIndicator label="분석 중" kind="dots" /> : compactMode ? "분석 실행" : "구역 분석"}
                   </button>
                   <button type="button" className="lab-btn lab-btn-tertiary" onClick={onUndoZonePoint} disabled={zonePointCount === 0 || zoneLoading}>
-                    마지막 점 되돌리기
+                    {compactMode ? "점 되돌리기" : "마지막 점 되돌리기"}
                   </button>
                   <button type="button" className="lab-btn lab-btn-danger" onClick={onClearZonePoints} disabled={zoneLoading}>
                     전체 초기화

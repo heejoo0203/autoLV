@@ -140,6 +140,7 @@ function MapPageClient() {
   const [zoneListLoading, setZoneListLoading] = useState(false);
   const [zoneLibraryOpen, setZoneLibraryOpen] = useState(true);
   const [mapPanelCollapsed, setMapPanelCollapsed] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [zoneItemBusyId, setZoneItemBusyId] = useState<string | null>(null);
   const [compareZoneId, setCompareZoneId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -193,6 +194,11 @@ function MapPageClient() {
         item.caption.toLowerCase().includes(lowered),
     ).slice(0, 5);
   }, [addressQuery]);
+  const shouldShowStatusOverlay =
+    loading ||
+    addressLoading ||
+    zoneLoading ||
+    (!isCompactViewport ? Boolean(message) : /실패|오류|로그인|없습니다|불가|못했습니다/.test(message));
 
   const handleModeChange = (nextMode: "basic" | "zone") => {
     if (nextMode === "zone" && !isLoggedIn) {
@@ -219,6 +225,32 @@ function MapPageClient() {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
       clearZoneShapes();
       clearZoneParcelHighlights();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 860px)");
+    const applyViewportState = (matches: boolean) => {
+      setIsCompactViewport(matches);
+      if (matches) {
+        setMapPanelCollapsed(true);
+        setZoneLibraryOpen(false);
+      }
+    };
+
+    applyViewportState(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      applyViewportState(event.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
     };
   }, []);
 
@@ -1355,6 +1387,7 @@ function MapPageClient() {
           <MapFloatingWorkbench
             collapsed={mapPanelCollapsed}
             onToggleCollapse={() => setMapPanelCollapsed((prev) => !prev)}
+            compactMode={isCompactViewport}
             viewMode={viewMode}
             onModeChange={handleModeChange}
             isLoggedIn={isLoggedIn}
@@ -1396,20 +1429,19 @@ function MapPageClient() {
           />
         </div>
 
-        <div className="map-overlay map-overlay-right-top">
-          <MapWorkspaceToolbar
-            showDistrictOverlay={showDistrictOverlay}
-            onToggleDistrictOverlay={toggleDistrictOverlay}
-            onMoveToCurrentLocation={moveToCurrentLocation}
-            onResetView={resetMapView}
-            onToggleFullscreen={() => void toggleFullscreen()}
-            isFullscreen={isFullscreen}
-            viewMode={viewMode}
-            zoneLibraryOpen={zoneLibraryOpen}
-            onToggleZoneLibrary={() => setZoneLibraryOpen((prev) => !prev)}
-            onClearZonePoints={clearZonePoints}
-          />
-        </div>
+        {!isCompactViewport || mapPanelCollapsed ? (
+          <div className="map-overlay map-overlay-right-top">
+            <MapWorkspaceToolbar
+              showDistrictOverlay={showDistrictOverlay}
+              onToggleDistrictOverlay={toggleDistrictOverlay}
+              onMoveToCurrentLocation={moveToCurrentLocation}
+              onResetView={resetMapView}
+              onToggleFullscreen={() => void toggleFullscreen()}
+              isFullscreen={isFullscreen}
+              compactMode={isCompactViewport}
+            />
+          </div>
+        ) : null}
 
         {viewMode === "zone" && zoneResult ? (
           <div className="map-overlay map-overlay-left-bottom">
@@ -1422,18 +1454,20 @@ function MapPageClient() {
           </div>
         ) : null}
 
-        <div className="map-overlay map-overlay-status">
-          <div className={`map-status-pill ${loading || addressLoading || zoneLoading ? "busy" : ""}`}>
-            <strong>{viewMode === "basic" ? "필지 조회" : "구역 분석"}</strong>
-            <span>
-              {loading || addressLoading || zoneLoading ? (
-                <LoadingIndicator label="데이터를 불러오는 중입니다" kind="spinner" />
-              ) : (
-                message
-              )}
-            </span>
+        {shouldShowStatusOverlay ? (
+          <div className="map-overlay map-overlay-status">
+            <div className={`map-status-pill ${loading || addressLoading || zoneLoading ? "busy" : ""}`}>
+              <strong>{viewMode === "basic" ? "필지 조회" : "구역 분석"}</strong>
+              <span>
+                {loading || addressLoading || zoneLoading ? (
+                  <LoadingIndicator label="데이터를 불러오는 중입니다" kind="spinner" />
+                ) : (
+                  message
+                )}
+              </span>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <MapResultDrawer
           open={detailPanelOpen}

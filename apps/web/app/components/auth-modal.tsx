@@ -7,6 +7,14 @@ import { useAuth } from "@/app/components/auth-provider";
 import type { UserTerms } from "@/app/lib/types";
 
 type AssistMode = "none" | "find-id" | "reset-password";
+type RegisterFieldKey =
+  | "full_name"
+  | "phone_number"
+  | "email"
+  | "verification_code"
+  | "password"
+  | "confirm_password"
+  | "agreements";
 
 const REMEMBER_ID_KEY = "piljilab_saved_login_email";
 const LEGACY_REMEMBER_ID_KEY = "autolv_saved_login_email";
@@ -45,6 +53,7 @@ export function AuthModal() {
   const [registerEmailCheckedValue, setRegisterEmailCheckedValue] = useState("");
   const [registerEmailAvailable, setRegisterEmailAvailable] = useState<boolean | null>(null);
   const [registerEmailCheckLoading, setRegisterEmailCheckLoading] = useState(false);
+  const [registerFieldErrors, setRegisterFieldErrors] = useState<Partial<Record<RegisterFieldKey, string>>>({});
 
   const [findIdName, setFindIdName] = useState("");
   const [findIdPhone, setFindIdPhone] = useState("");
@@ -83,6 +92,7 @@ export function AuthModal() {
     setRegisterEmailCheckedValue("");
     setRegisterEmailAvailable(null);
     setRegisterEmailCheckLoading(false);
+    setRegisterFieldErrors({});
     setFindIdName("");
     setFindIdPhone("");
     setResetEmail("");
@@ -159,14 +169,50 @@ export function AuthModal() {
     }
   };
 
+  const clearRegisterFieldError = (field: RegisterFieldKey) => {
+    setRegisterFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const validateRegisterFields = () => {
+    const nextErrors: Partial<Record<RegisterFieldKey, string>> = {};
+
+    if (!registerName.trim()) nextErrors.full_name = "이름은 필수 항목입니다.";
+    if (!registerPhone.trim()) nextErrors.phone_number = "연락처는 필수 항목입니다.";
+    if (!registerEmail.trim()) nextErrors.email = "이메일은 필수 항목입니다.";
+    if (!registerVerificationCode.trim()) nextErrors.verification_code = "인증 코드는 필수 항목입니다.";
+    if (!registerPassword) nextErrors.password = "비밀번호는 필수 항목입니다.";
+    if (!registerPasswordConfirm) nextErrors.confirm_password = "비밀번호 확인은 필수 항목입니다.";
+    if (!registerAgreements) nextErrors.agreements = "필수 약관 동의가 필요합니다.";
+
+    setRegisterFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const onRegisterSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const email = registerEmail.trim();
+    if (!validateRegisterFields()) {
+      setAuthMessage("필수 항목을 입력해 주세요.", "error");
+      return;
+    }
     if (!registerVerificationId) {
+      setRegisterFieldErrors((prev) => ({
+        ...prev,
+        verification_code: "이메일 중복 확인 후 인증 코드를 먼저 발송해 주세요.",
+      }));
       setAuthMessage("이메일 인증 코드를 먼저 발송해 주세요.", "error");
       return;
     }
     if (registerEmailAvailable !== true || registerEmailCheckedValue !== email) {
+      setRegisterFieldErrors((prev) => ({
+        ...prev,
+        email: "이메일 중복 확인을 완료해 주세요.",
+      }));
       setAuthMessage("이메일 중복 확인을 완료해 주세요.", "error");
       return;
     }
@@ -190,6 +236,7 @@ export function AuthModal() {
   const onCheckEmailAvailability = async () => {
     const email = registerEmail.trim();
     if (!email) {
+      setRegisterFieldErrors((prev) => ({ ...prev, email: "이메일은 필수 항목입니다." }));
       setAuthMessage("이메일을 먼저 입력해 주세요.", "error");
       return;
     }
@@ -198,6 +245,7 @@ export function AuthModal() {
       const available = await checkEmailAvailability(email);
       setRegisterEmailCheckedValue(email);
       setRegisterEmailAvailable(available);
+      clearRegisterFieldError("email");
       if (available) {
         setAuthMessage("사용 가능한 이메일입니다.", "success");
       } else {
@@ -213,10 +261,15 @@ export function AuthModal() {
   const onSendSignupCode = async () => {
     const email = registerEmail.trim();
     if (!email) {
+      setRegisterFieldErrors((prev) => ({ ...prev, email: "이메일은 필수 항목입니다." }));
       setAuthMessage("이메일을 먼저 입력해 주세요.", "error");
       return;
     }
     if (registerEmailAvailable !== true || registerEmailCheckedValue !== email) {
+      setRegisterFieldErrors((prev) => ({
+        ...prev,
+        email: "이메일 중복 확인을 완료해 주세요.",
+      }));
       setAuthMessage("인증 코드 발송 전에 이메일 중복 확인을 완료해 주세요.", "error");
       return;
     }
@@ -226,6 +279,7 @@ export function AuthModal() {
         email,
       });
       setRegisterVerificationId(result.verification_id);
+      clearRegisterFieldError("verification_code");
       if (result.debug_code) {
         setRegisterVerificationCode(result.debug_code);
       }
@@ -318,21 +372,23 @@ export function AuthModal() {
         <div className="auth-modal" onClick={(event) => event.stopPropagation()}>
           <div className="auth-modal-head">
             <h3>{modalTitle}</h3>
-            <button onClick={closeAuth}>✕</button>
+            <button onClick={closeAuth} disabled={authLoading}>
+              ✕
+            </button>
           </div>
 
           {assistMode === "none" ? (
             <div className="tab-row">
-              <button className={`tab-chip ${authMode === "login" ? "on" : ""}`} onClick={() => setAuthMode("login")}>
+              <button className={`tab-chip ${authMode === "login" ? "on" : ""}`} onClick={() => setAuthMode("login")} disabled={authLoading}>
                 로그인
               </button>
-              <button className={`tab-chip ${authMode === "register" ? "on" : ""}`} onClick={() => setAuthMode("register")}>
+              <button className={`tab-chip ${authMode === "register" ? "on" : ""}`} onClick={() => setAuthMode("register")} disabled={authLoading}>
                 회원가입
               </button>
             </div>
           ) : (
             <div className="tab-row">
-              <button className="tab-chip on" onClick={() => setAssistMode("none")}>
+              <button className="tab-chip on" onClick={() => setAssistMode("none")} disabled={authLoading}>
                 로그인으로 돌아가기
               </button>
             </div>
@@ -340,11 +396,13 @@ export function AuthModal() {
 
           {assistMode === "find-id" ? (
             <form className="auth-form-grid" onSubmit={(event) => void onFindIdSubmit(event)}>
-              <input placeholder="이름" value={findIdName} onChange={(event) => setFindIdName(event.target.value)} />
+              <input className="auth-input" placeholder="이름" value={findIdName} onChange={(event) => setFindIdName(event.target.value)} disabled={authLoading} />
               <input
+                className="auth-input"
                 placeholder="연락처 (숫자 또는 하이픈)"
                 value={findIdPhone}
                 onChange={(event) => setFindIdPhone(event.target.value)}
+                disabled={authLoading}
               />
               <button type="submit" className="btn-primary" disabled={authLoading}>
                 {authLoading ? "처리 중..." : "아이디 확인"}
@@ -355,38 +413,45 @@ export function AuthModal() {
           {assistMode === "reset-password" ? (
             <form className="auth-form-grid" onSubmit={(event) => void onResetSubmit(event)}>
               <input
+                className="auth-input"
                 placeholder="가입 이메일"
                 value={resetEmail}
                 onChange={(event) => setResetEmail(event.target.value)}
+                disabled={authLoading}
               />
               <div className="verification-row">
-                <input placeholder="인증 코드 6자리" value={resetCode} onChange={(event) => setResetCode(event.target.value)} />
-                <button type="button" className="nav-item" onClick={() => void onSendResetCode()}>
+                <input className="auth-input" placeholder="인증 코드 6자리" value={resetCode} onChange={(event) => setResetCode(event.target.value)} disabled={authLoading} />
+                <button type="button" className="nav-item" onClick={() => void onSendResetCode()} disabled={authLoading}>
                   코드 발송
                 </button>
               </div>
               <div className="password-field">
                 <input
+                  className="auth-input"
                   placeholder="새 비밀번호"
                   type={showResetPassword ? "text" : "password"}
                   value={resetNewPassword}
                   onChange={(event) => setResetNewPassword(event.target.value)}
+                  disabled={authLoading}
                 />
-                <button type="button" className="password-toggle" onClick={() => setShowResetPassword((previous) => !previous)}>
+                <button type="button" className="password-toggle" onClick={() => setShowResetPassword((previous) => !previous)} disabled={authLoading}>
                   {showResetPassword ? "숨김" : "보기"}
                 </button>
               </div>
               <div className="password-field">
                 <input
+                  className="auth-input"
                   placeholder="새 비밀번호 확인"
                   type={showResetPasswordConfirm ? "text" : "password"}
                   value={resetConfirmPassword}
                   onChange={(event) => setResetConfirmPassword(event.target.value)}
+                  disabled={authLoading}
                 />
                 <button
                   type="button"
                   className="password-toggle"
                   onClick={() => setShowResetPasswordConfirm((previous) => !previous)}
+                  disabled={authLoading}
                 >
                   {showResetPasswordConfirm ? "숨김" : "보기"}
                 </button>
@@ -399,30 +464,38 @@ export function AuthModal() {
 
           {assistMode === "none" && authMode === "login" ? (
             <form className="auth-form-grid" onSubmit={(event) => void onLoginSubmit(event)}>
-              <input placeholder="이메일" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} />
+              <input
+                className="auth-input"
+                placeholder="이메일"
+                value={loginEmail}
+                onChange={(event) => setLoginEmail(event.target.value)}
+                disabled={authLoading}
+              />
               <div className="password-field">
                 <input
+                  className="auth-input"
                   placeholder="비밀번호"
                   type={showLoginPassword ? "text" : "password"}
                   value={loginPassword}
                   onChange={(event) => setLoginPassword(event.target.value)}
+                  disabled={authLoading}
                 />
-                <button type="button" className="password-toggle" onClick={() => setShowLoginPassword((previous) => !previous)}>
+                <button type="button" className="password-toggle" onClick={() => setShowLoginPassword((previous) => !previous)} disabled={authLoading}>
                   {showLoginPassword ? "숨김" : "보기"}
                 </button>
               </div>
               <label className="remember-label">
-                <input type="checkbox" checked={rememberId} onChange={(event) => setRememberId(event.target.checked)} />
+                <input type="checkbox" checked={rememberId} onChange={(event) => setRememberId(event.target.checked)} disabled={authLoading} />
                 아이디 저장
               </label>
               <button type="submit" className="btn-primary" disabled={authLoading}>
                 {authLoading ? "처리 중..." : "로그인"}
               </button>
               <div className="auth-help-row">
-                <button type="button" className="btn-link" onClick={() => setAssistMode("find-id")}>
+                <button type="button" className="btn-link" onClick={() => setAssistMode("find-id")} disabled={authLoading}>
                   아이디 찾기
                 </button>
-                <button type="button" className="btn-link" onClick={() => setAssistMode("reset-password")}>
+                <button type="button" className="btn-link" onClick={() => setAssistMode("reset-password")} disabled={authLoading}>
                   비밀번호 찾기
                 </button>
               </div>
@@ -431,88 +504,179 @@ export function AuthModal() {
 
           {assistMode === "none" && authMode === "register" ? (
             <form className="auth-form-grid" onSubmit={(event) => void onRegisterSubmit(event)}>
-              <input
-                placeholder="이름 (2~20자, 한글/영문/숫자)"
-                value={registerName}
-                onChange={(event) => setRegisterName(event.target.value)}
-              />
-              <input
-                placeholder="연락처 (숫자 또는 하이픈)"
-                value={registerPhone}
-                onChange={(event) => setRegisterPhone(event.target.value)}
-              />
-              <div className="verification-row">
-                <input placeholder="이메일" value={registerEmail} onChange={(event) => setRegisterEmail(event.target.value)} />
-                <button
-                  type="button"
-                  className="nav-item"
-                  onClick={() => void onCheckEmailAvailability()}
-                  disabled={registerEmailCheckLoading}
-                >
-                  {registerEmailCheckLoading ? "확인 중..." : "중복 확인"}
-                </button>
-              </div>
-              <div className="verification-row">
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="register-name">
+                  이름 <span className="auth-required-mark">*</span>
+                </label>
                 <input
-                  placeholder="인증 코드 6자리"
-                  value={registerVerificationCode}
-                  onChange={(event) => setRegisterVerificationCode(event.target.value)}
+                  id="register-name"
+                  className={`auth-input ${registerFieldErrors.full_name ? "invalid" : ""}`}
+                  placeholder="이름 (2~20자, 한글/영문/숫자)"
+                  value={registerName}
+                  onChange={(event) => {
+                    setRegisterName(event.target.value);
+                    clearRegisterFieldError("full_name");
+                  }}
+                  disabled={authLoading}
                 />
-                <button type="button" className="nav-item" onClick={() => void onSendSignupCode()}>
-                  코드 발송
-                </button>
+                {registerFieldErrors.full_name ? <p className="auth-field-error">{registerFieldErrors.full_name}</p> : null}
               </div>
-              <div className="password-field">
+
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="register-phone">
+                  연락처 <span className="auth-required-mark">*</span>
+                </label>
                 <input
-                  placeholder="비밀번호 (8~16자, 영문/숫자/특수문자)"
-                  type={showRegisterPassword ? "text" : "password"}
-                  value={registerPassword}
-                  onChange={(event) => setRegisterPassword(event.target.value)}
+                  id="register-phone"
+                  className={`auth-input ${registerFieldErrors.phone_number ? "invalid" : ""}`}
+                  placeholder="연락처 (숫자 또는 하이픈)"
+                  value={registerPhone}
+                  onChange={(event) => {
+                    setRegisterPhone(event.target.value);
+                    clearRegisterFieldError("phone_number");
+                  }}
+                  disabled={authLoading}
                 />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowRegisterPassword((previous) => !previous)}
-                >
-                  {showRegisterPassword ? "숨김" : "보기"}
-                </button>
+                {registerFieldErrors.phone_number ? <p className="auth-field-error">{registerFieldErrors.phone_number}</p> : null}
               </div>
-              <div className="password-field">
-                <input
-                  placeholder="비밀번호 확인"
-                  type={showRegisterPasswordConfirm ? "text" : "password"}
-                  value={registerPasswordConfirm}
-                  onChange={(event) => setRegisterPasswordConfirm(event.target.value)}
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowRegisterPasswordConfirm((previous) => !previous)}
-                >
-                  {showRegisterPasswordConfirm ? "숨김" : "보기"}
-                </button>
-              </div>
-              <label className="agree-label">
-                <input
-                  type="checkbox"
-                  checked={registerAgreements}
-                  onChange={(event) => setRegisterAgreements(event.target.checked)}
-                />
-                <span>
-                  [필수]{" "}
-                  <button type="button" className="btn-link agree-link" onClick={() => void onOpenTerms()}>
-                    서비스 이용약관
-                  </button>{" "}
-                  및{" "}
-                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="btn-link agree-link">
-                    개인정보처리방침
-                  </a>{" "}
-                  확인 후{" "}
-                  <button type="button" className="btn-link agree-link" onClick={() => void onOpenTerms()}>
-                    동의합니다
+
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="register-email">
+                  이메일 <span className="auth-required-mark">*</span>
+                </label>
+                <div className="input-action-field email-action-field">
+                  <input
+                    id="register-email"
+                    className={`auth-input ${registerFieldErrors.email ? "invalid" : ""}`}
+                    placeholder="이메일"
+                    value={registerEmail}
+                    onChange={(event) => {
+                      setRegisterEmail(event.target.value);
+                      clearRegisterFieldError("email");
+                    }}
+                    disabled={authLoading || registerEmailCheckLoading}
+                  />
+                  <button
+                    type="button"
+                    className="input-action-btn"
+                    onClick={() => void onCheckEmailAvailability()}
+                    disabled={authLoading || registerEmailCheckLoading}
+                  >
+                    {registerEmailCheckLoading ? "확인 중" : "중복 확인"}
                   </button>
-                </span>
-              </label>
+                </div>
+                {registerEmailAvailable === true && registerEmailCheckedValue === registerEmail.trim() ? (
+                  <p className="auth-field-help success">사용 가능한 이메일입니다.</p>
+                ) : null}
+                {registerFieldErrors.email ? <p className="auth-field-error">{registerFieldErrors.email}</p> : null}
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="register-code">
+                  인증 코드 <span className="auth-required-mark">*</span>
+                </label>
+                <div className="verification-row">
+                  <input
+                    id="register-code"
+                    className={`auth-input ${registerFieldErrors.verification_code ? "invalid" : ""}`}
+                    placeholder="인증 코드 6자리"
+                    value={registerVerificationCode}
+                    onChange={(event) => {
+                      setRegisterVerificationCode(event.target.value);
+                      clearRegisterFieldError("verification_code");
+                    }}
+                    disabled={authLoading}
+                  />
+                  <button type="button" className="nav-item" onClick={() => void onSendSignupCode()} disabled={authLoading}>
+                    코드 발송
+                  </button>
+                </div>
+                {registerFieldErrors.verification_code ? <p className="auth-field-error">{registerFieldErrors.verification_code}</p> : null}
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="register-password">
+                  비밀번호 <span className="auth-required-mark">*</span>
+                </label>
+                <div className="password-field">
+                  <input
+                    id="register-password"
+                    className={`auth-input ${registerFieldErrors.password ? "invalid" : ""}`}
+                    placeholder="비밀번호 (8~16자, 영문/숫자/특수문자)"
+                    type={showRegisterPassword ? "text" : "password"}
+                    value={registerPassword}
+                    onChange={(event) => {
+                      setRegisterPassword(event.target.value);
+                      clearRegisterFieldError("password");
+                    }}
+                    disabled={authLoading}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowRegisterPassword((previous) => !previous)}
+                    disabled={authLoading}
+                  >
+                    {showRegisterPassword ? "숨김" : "보기"}
+                  </button>
+                </div>
+                {registerFieldErrors.password ? <p className="auth-field-error">{registerFieldErrors.password}</p> : null}
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-field-label" htmlFor="register-password-confirm">
+                  비밀번호 확인 <span className="auth-required-mark">*</span>
+                </label>
+                <div className="password-field">
+                  <input
+                    id="register-password-confirm"
+                    className={`auth-input ${registerFieldErrors.confirm_password ? "invalid" : ""}`}
+                    placeholder="비밀번호 확인"
+                    type={showRegisterPasswordConfirm ? "text" : "password"}
+                    value={registerPasswordConfirm}
+                    onChange={(event) => {
+                      setRegisterPasswordConfirm(event.target.value);
+                      clearRegisterFieldError("confirm_password");
+                    }}
+                    disabled={authLoading}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowRegisterPasswordConfirm((previous) => !previous)}
+                    disabled={authLoading}
+                  >
+                    {showRegisterPasswordConfirm ? "숨김" : "보기"}
+                  </button>
+                </div>
+                {registerFieldErrors.confirm_password ? <p className="auth-field-error">{registerFieldErrors.confirm_password}</p> : null}
+              </div>
+
+              <div className="auth-field auth-check-field">
+                <label className="agree-label">
+                  <input
+                    type="checkbox"
+                    checked={registerAgreements}
+                    onChange={(event) => {
+                      setRegisterAgreements(event.target.checked);
+                      clearRegisterFieldError("agreements");
+                    }}
+                    disabled={authLoading}
+                  />
+                  <span>
+                    <span className="auth-required-mark">*</span> 서비스 이용약관{" "}
+                    <button type="button" className="btn-link agree-link" onClick={() => void onOpenTerms()}>
+                      보기
+                    </button>{" "}
+                    및{" "}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="btn-link agree-link">
+                      개인정보처리방침
+                    </a>{" "}
+                    확인 후 동의합니다
+                  </span>
+                </label>
+                {registerFieldErrors.agreements ? <p className="auth-field-error">{registerFieldErrors.agreements}</p> : null}
+              </div>
               <button type="submit" className="btn-primary" disabled={authLoading}>
                 {authLoading ? "처리 중..." : "회원가입"}
               </button>

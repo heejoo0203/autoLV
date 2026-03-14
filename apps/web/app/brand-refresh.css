@@ -1149,12 +1149,82 @@ body > div[style*="position: fixed"] {
   gap: 14px;
 }
 
+.auth-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-check-field {
+  gap: 6px;
+}
+
+.auth-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--lab-primary-strong);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.auth-required-mark {
+  color: #d34545;
+  font-weight: 900;
+}
+
+.auth-field-error,
+.auth-field-help {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.auth-field-error {
+  color: #c65151;
+  font-weight: 700;
+}
+
+.auth-field-help.success {
+  color: #2e8740;
+  font-weight: 700;
+}
+
+.input-action-field {
+  position: relative;
+}
+
+.input-action-field .auth-input {
+  padding-right: 112px;
+}
+
+.input-action-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(18, 42, 72, 0.12);
+  border-radius: 10px;
+  background: rgba(248, 251, 255, 0.96);
+  color: var(--lab-primary-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .password-field {
   position: relative;
 }
 
 .password-field .auth-input {
   padding-right: 58px;
+}
+
+.auth-input.invalid {
+  border-color: rgba(214, 85, 85, 0.52);
+  box-shadow: 0 0 0 4px rgba(214, 85, 85, 0.08);
 }
 
 .password-toggle {
@@ -1166,6 +1236,13 @@ body > div[style*="position: fixed"] {
   background: transparent;
   color: var(--lab-primary-strong);
   font-weight: 800;
+}
+
+.password-toggle:disabled,
+.input-action-btn:disabled,
+.btn-link:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
 }
 
 .remember-label,
@@ -4464,6 +4541,10 @@ body::before {
   .verification-row {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .input-action-field .auth-input {
+    padding-right: 104px;
   }
 
   .agree-label {

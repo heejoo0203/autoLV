@@ -68,7 +68,8 @@ export function resolveApiBases(options?: ApiFetchOptions): string[] {
 
 export async function apiFetch(path: string, init: RequestInit, options?: ApiFetchOptions): Promise<Response> {
   let lastError: unknown = null;
-  for (const base of resolveApiBases(options)) {
+  const bases = resolveApiBases(options);
+  for (const [index, base] of bases.entries()) {
     try {
       const response = await fetch(`${base}${path}`, {
         ...init,
@@ -76,6 +77,10 @@ export async function apiFetch(path: string, init: RequestInit, options?: ApiFet
       });
       if (options?.rememberPreferredBase && response.ok) {
         preferredApiBase = base;
+      }
+      const hasFallback = index < bases.length - 1;
+      if (!response.ok && hasFallback && (response.status === 404 || response.status >= 500)) {
+        continue;
       }
       return response;
     } catch (error) {

@@ -30,7 +30,12 @@ export default function MyPage() {
   const [withdrawText, setWithdrawText] = useState("");
   const [terms, setTerms] = useState<UserTerms | null>(null);
   const [termsLoading, setTermsLoading] = useState(false);
-  const [localMessage, setLocalMessage] = useState("");
+  const [pageMessage, setPageMessage] = useState("");
+  const [actionMessage, setActionMessage] = useState<{
+    target: "profile" | "password" | "withdrawal";
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const [activeAction, setActiveAction] = useState<null | "profile" | "password" | "withdrawal">(null);
   const androidApkPath = "/downloads/autoLV-android-release-v2.2.0.apk";
 
@@ -51,7 +56,7 @@ export default function MyPage() {
         setTerms(payload);
       } catch (error) {
         if (ignore) return;
-        setLocalMessage(error instanceof Error ? error.message : "약관을 불러오지 못했습니다.");
+        setPageMessage(error instanceof Error ? error.message : "약관을 불러오지 못했습니다.");
       } finally {
         if (!ignore) setTermsLoading(false);
       }
@@ -62,7 +67,7 @@ export default function MyPage() {
     };
   }, [isLoggedIn, loadTerms]);
 
-  const mergedMessage = useMemo(() => localMessage || authMessage, [localMessage, authMessage]);
+  const mergedMessage = useMemo(() => pageMessage || authMessage, [pageMessage, authMessage]);
 
   if (!isLoggedIn) {
     return (
@@ -170,11 +175,23 @@ export default function MyPage() {
             className="lab-btn lab-btn-primary"
             disabled={authLoading}
             onClick={async () => {
-              setLocalMessage("");
+              setPageMessage("");
+              setActionMessage(null);
               setActiveAction("profile");
               try {
                 await updateProfile({ full_name: fullName, phone_number: phoneNumber, profile_image: profileImage });
                 setProfileImage(null);
+                setActionMessage({
+                  target: "profile",
+                  tone: "success",
+                  text: "회원정보가 저장되었습니다.",
+                });
+              } catch (error) {
+                setActionMessage({
+                  target: "profile",
+                  tone: "error",
+                  text: error instanceof Error ? error.message : "회원정보 저장에 실패했습니다.",
+                });
               } finally {
                 setActiveAction(null);
               }
@@ -182,6 +199,9 @@ export default function MyPage() {
           >
             {authLoading && activeAction === "profile" ? "저장 중..." : "저장"}
           </button>
+          {actionMessage?.target === "profile" ? (
+            <p className={`auth-message ${actionMessage.tone}`}>{actionMessage.text}</p>
+          ) : null}
         </article>
 
         <article className="lab-surface mypage-card-pro">
@@ -230,7 +250,24 @@ export default function MyPage() {
             className="lab-btn lab-btn-primary"
             disabled={authLoading}
             onClick={async () => {
-              setLocalMessage("");
+              setPageMessage("");
+              setActionMessage(null);
+              if (!currentPassword || !newPassword || !confirmNewPassword) {
+                setActionMessage({
+                  target: "password",
+                  tone: "error",
+                  text: "기존 비밀번호와 새 비밀번호 항목을 모두 입력해 주세요.",
+                });
+                return;
+              }
+              if (newPassword !== confirmNewPassword) {
+                setActionMessage({
+                  target: "password",
+                  tone: "error",
+                  text: "새 비밀번호와 새 비밀번호 확인이 일치하지 않습니다.",
+                });
+                return;
+              }
               setActiveAction("password");
               try {
                 await changePassword({
@@ -241,6 +278,17 @@ export default function MyPage() {
                 setCurrentPassword("");
                 setNewPassword("");
                 setConfirmNewPassword("");
+                setActionMessage({
+                  target: "password",
+                  tone: "success",
+                  text: "비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용해 주세요.",
+                });
+              } catch (error) {
+                setActionMessage({
+                  target: "password",
+                  tone: "error",
+                  text: error instanceof Error ? error.message : "비밀번호 변경에 실패했습니다.",
+                });
               } finally {
                 setActiveAction(null);
               }
@@ -248,6 +296,10 @@ export default function MyPage() {
           >
             {authLoading && activeAction === "password" ? "변경 중..." : "비밀번호 변경"}
           </button>
+          <p className="hint">비밀번호는 8~16자, 영문/숫자/특수문자를 각각 1자 이상 포함해야 합니다.</p>
+          {actionMessage?.target === "password" ? (
+            <p className={`auth-message ${actionMessage.tone}`}>{actionMessage.text}</p>
+          ) : null}
         </article>
 
         <article className="lab-surface mypage-card-pro">
@@ -299,10 +351,17 @@ export default function MyPage() {
             className="lab-btn lab-btn-danger full"
             disabled={authLoading}
             onClick={async () => {
-              setLocalMessage("");
+              setPageMessage("");
+              setActionMessage(null);
               setActiveAction("withdrawal");
               try {
                 await deleteAccount(withdrawText);
+              } catch (error) {
+                setActionMessage({
+                  target: "withdrawal",
+                  tone: "error",
+                  text: error instanceof Error ? error.message : "회원 탈퇴에 실패했습니다.",
+                });
               } finally {
                 setActiveAction(null);
               }
@@ -310,6 +369,9 @@ export default function MyPage() {
           >
             {authLoading && activeAction === "withdrawal" ? "탈퇴 처리 중..." : "회원 탈퇴"}
           </button>
+          {actionMessage?.target === "withdrawal" ? (
+            <p className={`auth-message ${actionMessage.tone}`}>{actionMessage.text}</p>
+          ) : null}
         </article>
       </section>
     </div>

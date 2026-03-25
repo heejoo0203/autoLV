@@ -139,4 +139,3 @@ npx cap sync android
 - API 상세 실행: [apps/api/README.md](apps/api/README.md)
 - Web 실행: [apps/web/README.md](apps/web/README.md)
 - Mobile wrapper: [apps/mobile/README.md](apps/mobile/README.md)
-- 포트폴리오 정리: [포트폴리오 정리.md](포트폴리오%20정리.md)
